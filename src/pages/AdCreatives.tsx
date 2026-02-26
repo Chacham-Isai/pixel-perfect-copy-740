@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Image, Sparkles, Loader2, Download, Trash2, ArrowLeftRight } from "lucide-react";
+import { Image, Sparkles, Loader2, Download, Trash2 } from "lucide-react";
 import { useAdCreatives } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,8 +27,6 @@ const AdCreatives = () => {
   const [prompt, setPrompt] = useState("");
   const [platform, setPlatform] = useState("Facebook Feed (1200×628)");
   const [generating, setGenerating] = useState(false);
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareIds, setCompareIds] = useState<string[]>([]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -85,11 +83,6 @@ const AdCreatives = () => {
     }
   };
 
-  const toggleCompare = (id: string) => {
-    setCompareIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 2 ? [...prev, id] : [prev[1], id]);
-  };
-
-  const compareCreatives = compareIds.map(id => all.find(c => c.id === id)).filter(Boolean);
 
   return (
     <AppLayout>
@@ -100,9 +93,6 @@ const AdCreatives = () => {
             <h1 className="text-2xl font-bold text-foreground">Ad Creatives</h1>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setCompareMode(!compareMode)}>
-              <ArrowLeftRight className="h-4 w-4 mr-1" /> {compareMode ? "Exit Compare" : "A/B Compare"}
-            </Button>
             <Dialog open={genOpen} onOpenChange={setGenOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-primary text-primary-foreground"><Sparkles className="h-4 w-4 mr-1" /> Generate Creative</Button>
@@ -137,29 +127,11 @@ const AdCreatives = () => {
           </div>
         </div>
 
-        {compareMode && compareCreatives.length === 2 && (
-          <Card className="bg-card halevai-border">
-            <CardContent className="p-4">
-              <h3 className="text-sm font-semibold text-foreground mb-3">A/B Comparison</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {compareCreatives.map((c: any) => (
-                  <div key={c.id} className="space-y-2">
-                    <div className="h-32 bg-secondary/50 rounded-lg flex items-center justify-center">
-                      {c.image_url ? <img src={c.image_url} alt="" className="h-full w-full object-cover rounded-lg" /> : <Image className="h-8 w-8 text-muted-foreground/30" />}
-                    </div>
-                    <h4 className="font-semibold text-foreground text-sm">{c.headline}</h4>
-                    <p className="text-xs text-muted-foreground">{c.body_copy}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {isLoading ? <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">{Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-48" />)}</div> : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {all.map((c) => (
-              <Card key={c.id} className={`bg-card halevai-border hover:border-primary/30 transition-colors ${compareMode && compareIds.includes(c.id) ? "border-primary ring-1 ring-primary/30" : ""}`} onClick={compareMode ? () => toggleCompare(c.id) : undefined}>
+              <Card key={c.id} className="bg-card halevai-border hover:border-primary/30 transition-colors">
                 <CardContent className="p-4">
                   <div className="h-32 bg-secondary/50 rounded-lg mb-3 flex items-center justify-center">
                     {c.image_url ? <img src={c.image_url} alt="" className="h-full w-full object-cover rounded-lg" /> : <Image className="h-8 w-8 text-muted-foreground/30" />}
