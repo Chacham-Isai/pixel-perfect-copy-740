@@ -1,719 +1,1035 @@
-# Halevai.ai — Project Handoff Document
+# HALEVAI — Complete Project Handoff Document
 
-> **Last Updated:** 2026-02-26
-> **Live URL:** https://halevai.lovable.app
-> **Preview URL:** https://id-preview--55444805-7741-45de-a724-d19bffc88aa1.lovable.app
-
----
-
-## 1. What Is Halevai?
-
-Halevai.ai is a **full-stack AI-powered marketing & recruitment automation platform** for home care agencies. It manages the entire caregiver acquisition funnel — from sourcing candidates, running multi-platform ad campaigns, generating landing pages, tracking enrollment, to AI-driven strategic recommendations.
-
-The name "Halevai" (הלוואי) is Hebrew for "if only" / "hopefully" — reflecting the aspiration to make caregiver recruitment effortless.
+> Generated: 2026-02-26
+> Stack: React 18 + Vite + TypeScript + Tailwind CSS + Supabase (Lovable Cloud)
+> Published URL: https://halevai.lovable.app
 
 ---
 
-## 2. Tech Stack
+## TABLE OF CONTENTS
 
-| Layer | Technology |
-|-------|-----------|
-| **Framework** | React 18 + TypeScript + Vite |
-| **Styling** | Tailwind CSS + shadcn/ui components |
-| **State** | TanStack React Query v5 |
-| **Routing** | React Router v6 |
-| **Animation** | Framer Motion |
-| **Charts** | Recharts |
-| **Backend** | Lovable Cloud (Supabase under the hood) |
-| **Database** | PostgreSQL via Supabase |
-| **Auth** | Supabase Auth (email/password) |
-| **Edge Functions** | Deno (Supabase Edge Functions) — 15 deployed |
-| **AI Models** | Google Gemini 3 Flash Preview (text), Gemini 2.5 Flash Image (images) via Lovable AI Gateway |
-| **Web Scraping** | Firecrawl (connected via Lovable connector) |
-| **Drag & Drop** | @dnd-kit/core + @dnd-kit/sortable |
-| **Forms** | React Hook Form + Zod validation |
-| **Scheduling** | pg_cron + pg_net (automated daily jobs) |
-
-### Design System
-
-- **Theme:** Dark-first (no light mode). Navy/cyan/purple palette.
-- **Fonts:** Space Grotesk (headings), IBM Plex Mono (data labels)
-- **CSS Variables (HSL):**
-  - `--primary: 195 100% 50%` (cyan)
-  - `--accent: 270 80% 60%` (purple)
-  - `--background: 225 25% 6%` (deep navy)
-  - `--card: 225 25% 9%`
-  - `--border: 225 20% 16%`
-- **Custom classes:** `halevai-bg-gradient`, `halevai-glow`, `halevai-text`, `halevai-border`
+1. [File Tree](#1-file-tree)
+2. [Route Map](#2-route-map)
+3. [Component Dependency Graph](#3-component-dependency-graph)
+4. [Design System — index.css](#4-design-system--indexcss)
+5. [Design System — tailwind.config.ts](#5-design-system--tailwindconfigts)
+6. [Auth Context — useAuth.tsx](#6-auth-context--useauthtsx)
+7. [Permissions — permissions.ts](#7-permissions--permissionsts)
+8. [Data Hooks — useAgencyData.ts](#8-data-hooks--useagencydatats)
+9. [Database Schema — types.ts (Enums & Functions)](#9-database-schema--typests)
+10. [RLS Policies](#10-rls-policies)
+11. [Database Functions & Triggers](#11-database-functions--triggers)
+12. [Edge Function Config — config.toml](#12-edge-function-config--configtoml)
+13. [Edge Function Source Code (All 16)](#13-edge-function-source-code)
+14. [Edge Function Request/Response Contracts](#14-edge-function-requestresponse-contracts)
+15. [Environment Variables per Function](#15-environment-variables-per-function)
+16. [Secrets Inventory](#16-secrets-inventory)
 
 ---
 
-## 3. Database Schema (30+ Tables)
-
-### Core Agency Tables
-| Table | Purpose |
-|-------|---------|
-| `agencies` | Multi-tenant root. Has `name`, `slug`, `states[]`, `logo_url` |
-| `agency_members` | User ↔ Agency mapping with `role` enum (`owner`/`admin`) |
-| `profiles` | Extended user info (`full_name`, `email`, `avatar_url`) |
-| `business_config` | Branding: colors, logo, tagline, social URLs. One per agency |
-| `onboarding` | Onboarding wizard state & AI strategy output |
-| `locations` | Office locations with service counties |
-| `notifications` | In-app notification queue (realtime enabled) |
-
-### Caregiver Pipeline
-| Table | Purpose |
-|-------|---------|
-| `caregivers` | **Main CRM table.** 50+ columns: lead info, patient info, UTM tracking, enrollment status, scoring |
-| `caregiver_activities` | Activity log per caregiver (calls, emails, status changes) |
-
-### Marketing & Campaigns
-| Table | Purpose |
-|-------|---------|
-| `campaigns` | All campaign types. Has `campaign_type` enum: `recruitment`/`marketing`/`social`/`community`. Tracks spend, clicks, conversions, CPA |
-| `content_posts` | Social media posts with `platform`, `scheduled_date`, `hashtags[]`, AI generation flag |
-| `landing_pages` | Full structured pages: hero, benefits (jsonb), testimonials (jsonb), FAQ (jsonb), slug for public URL |
-| `landing_page_events` | Analytics: `page_view`/`form_start`/`form_submit` with UTM params |
-| `ad_creatives` | Generated ad images + copy. Linked to campaigns |
-| `saved_campaign_templates` | Reusable campaign content with tags, performance rating |
-| `campaign_packages` | Multi-platform ad packages with UTM params and tracking URLs |
-| `referral_sources` | AI-discovered marketing channels (churches, Facebook groups, etc.) |
-
-### Sequences (Automated Outreach)
-| Table | Purpose |
-|-------|---------|
-| `campaign_sequences` | Multi-step automated messaging sequences |
-| `sequence_steps` | Individual steps: channel (sms/email), delay, subject, body |
-| `sequence_enrollments` | Caregivers enrolled in sequences with progress tracking |
-
-### Talent Sourcing
-| Table | Purpose |
-|-------|---------|
-| `sourcing_campaigns` | Automated candidate discovery campaigns |
-| `sourced_candidates` | Candidates found, with match scores, enrichment status, outreach status |
-| `phone_screens` | AI phone screening results with transcripts and scoring |
-
-### Intelligence
-| Table | Purpose |
-|-------|---------|
-| `competitors` | Competitor tracking: pay rates, ratings, spend estimates |
-| `reviews` | Agency reviews from Google, Indeed, etc. with AI response drafting |
-| `review_requests` | Review solicitation tracking (sent → clicked → completed) |
-| `pay_rate_intel` | AI-analyzed competitive pay rates, Medicaid reimbursement ceilings, recommended rates by state/county |
-
-### AI & Strategy
-| Table | Purpose |
-|-------|---------|
-| `halevai_conversations` | Chat conversation threads |
-| `halevai_messages` | Individual messages (user/assistant roles) |
-| `halevai_recommendations` | AI-generated action items with priority, status, impact estimates |
-| `growth_playbooks` | Pre-built marketing playbook templates (10+ seeded) |
-| `daily_briefings` | Daily performance summaries (jsonb content) |
-| `activity_log` | System-wide audit trail |
-| `automation_configs` | Toggle-able automation rules |
-
-### Messaging & Integrations
-| Table | Purpose |
-|-------|---------|
-| `api_keys` | Per-agency integration credentials (Twilio, SendGrid, Clay, GHL, Bland AI). Encrypted key storage with connection status |
-| `message_log` | Full message audit trail: channel (sms/email/in_app), status, external_id, template, related entities |
-| `agent_activity_log` | AI agent execution log: action, agent_type, success/error, entity references |
-
-### RLS Pattern
-All tables use Row Level Security. Standard pattern:
-```sql
-agency_id IN (
-  SELECT agency_id FROM agency_members
-  WHERE user_id = auth.uid()
-)
-```
-Exceptions:
-- `landing_page_events` allows public INSERT (for anonymous page view tracking) with field validation
-- `agencies` INSERT scoped to `TO authenticated` role only (for onboarding)
-- `growth_playbooks` allows SELECT when `agency_id IS NULL` (shared system templates)
-- `api_keys` restricted to owner/admin roles only
-- `message_log` INSERT restricted to owner/admin; SELECT for all members
-
-### Key Enums
-- `lead_status`: new → contacted → intake_started → enrollment_pending → authorized → active → inactive → rejected
-- `lead_source`: landing_page, facebook, google, indeed, referral, walk_in, other
-- `campaign_type`: recruitment, marketing, social, community
-- `agency_role`: owner, admin
-
----
-
-## 4. Edge Functions (15 Deployed)
-
-All use `verify_jwt = false` in config.toml with manual auth validation inside the function.
-
-### `halevai-chat`
-- **Purpose:** Conversational AI assistant with full agency context
-- **Model:** `google/gemini-3-flash-preview`
-- **Context:** Loads agency data, caregivers, campaigns, competitors, reviews, recommendations
-- **Features:** Tool-calling for structured actions, conversation persistence
-
-### `campaign-optimizer`
-- **Purpose:** Multi-mode marketing brain
-- **Modes:**
-  - `template` — Platform-specific ad copy generation
-  - `optimization` — Campaign performance analysis & recommendations
-  - `initial_strategy` — Full marketing strategy from onboarding data
-  - `full_package` — Campaign Builder Step 3: generates per-platform content (headlines, descriptions, CTAs, UTM params, keywords)
-  - `playbook_execution` — Executes growth playbooks, creates campaigns & recommendations
-- **Model:** `google/gemini-3-flash-preview` with tool-calling
-
-### `generate-content`
-- **Purpose:** Social media content generation
-- **Output:** Structured posts with title, body, hashtags, image_prompt, platform-specific formatting
-- **Model:** `google/gemini-3-flash-preview`
-
-### `generate-landing-content`
-- **Purpose:** Landing page AI generation
-- **Output:** Hero section, benefits array, testimonials, FAQ, pay rate highlight, meta tags
-- **Customization:** State/county/language specific
-
-### `generate-creative`
-- **Purpose:** Ad image + copy generation
-- **Step 1:** Generate ad copy via `gemini-3-flash-preview` (tool-calling)
-- **Step 2:** Generate image via `gemini-2.5-flash-image`
-- **Step 3:** Upload to `ad-creatives` storage bucket
-- **Output:** headline, body_copy, image_url
-
-### `discover-sources`
-- **Purpose:** AI-powered referral source discovery
-- **Output:** Relevant marketing channels (Facebook groups, churches, cultural centers) for agency's markets
-- **Model:** `google/gemini-3-flash-preview`
-
-### `post-to-ads`
-- **Purpose:** Multi-platform posting infrastructure
-- **Current:** Returns manual posting instructions with pre-formatted content
-- **Future:** Direct API integration with ad platforms
-
-### `score-leads`
-- **Purpose:** AI-powered lead scoring for caregivers
-- **Logic:** Weighted scoring based on contact info, caregiving experience, Medicaid status, recency
-- **Output:** `lead_score` (0-100), `lead_tier` (HOT/WARM/COLD)
-
-### `analyze-pay-rates`
-- **Purpose:** AI + web scraping competitive pay rate analysis
-- **Integration:** Firecrawl for web scraping competitor job postings & Medicaid rates
-- **Model:** `google/gemini-2.5-flash` for analysis
-- **Output:** Recommended rate, market min/avg/max, Medicaid reimbursement ceiling, analysis summary
-- **Storage:** Results saved to `pay_rate_intel` table
-
-### `run-automations`
-- **Purpose:** Execute all active automation rules for an agency
-- **Automations (27 supported keys):**
-  - `lead_scoring` — Re-score unscored caregivers
-  - `follow_up_reminders` — Flag stale contacts (3+ days), create notifications
-  - `performance_alerts` — Campaign spend threshold alerts
-  - `stale_enrollment_alerts` — Enrollment stuck >14 days alerts
-  - `auto_welcome_sms` — Automated welcome message on new caregiver
-  - `auto_source_candidates` — Trigger candidate sourcing
-  - `auto_outreach_high_match` — Auto-outreach for high match scores
-  - `auto_screen_responded` — Auto-screen candidates who responded
-  - `auto_review_request` — Automated review solicitation
-  - `background_check_reminder` — Background check follow-up
-  - `auth_expiry_alert` — Authorization expiry warnings
-  - Plus 16 more keys for comprehensive automation coverage
-- **Multi-agency:** Supports `agencyId: "all"` for cron-triggered batch processing
-- **Error isolation:** Each automation runs independently; failures don't block others
-
-### `generate-briefing`
-- **Purpose:** Generate daily performance briefing for an agency
-- **Output:** Pipeline stats, campaign performance, action items, wins
-- **Multi-agency:** Supports `agencyId: "all"` for cron-triggered batch processing
-- **Deduplication:** Skips if briefing already exists for today
-
-### `send-message`
-- **Purpose:** Unified messaging gateway for SMS, email, and in-app notifications
-- **Channels:**
-  - `sms` — Via Twilio (account SID, auth token, phone number from `api_keys`)
-  - `email` — Via SendGrid with branded HTML templates (business_config branding)
-  - `in_app` — Direct insert into `notifications` table
-- **Features:** Branded email HTML builder, message logging to `message_log`, graceful fallback when provider not configured (mock mode)
-- **Output:** `{ success, message_id, status, mock, error }`
-
-### `source-candidates`
-- **Purpose:** AI-powered candidate sourcing and enrichment
-- **Integration:** Uses Clay API for candidate discovery
-- **Output:** Enriched candidate profiles saved to `sourced_candidates`
-
-### `trigger-outreach`
-- **Purpose:** Push candidates into outreach workflows
-- **Integration:** GoHighLevel (GHL) API for automated sequences
-- **Output:** Updated outreach status on candidates
-
-### `ai-phone-screen`
-- **Purpose:** AI-powered phone screening via Bland AI
-- **Features:** Automated screening calls, transcript capture, AI scoring
-- **Output:** Phone screen results with `ai_score`, `ai_summary`, `ai_recommendation`
-
----
-
-## 5. Scheduled Jobs (pg_cron)
-
-| Job | Schedule | Function | Description |
-|-----|----------|----------|-------------|
-| `run-automations-daily` | `0 7 * * *` (7:00 AM UTC) | `run-automations` | Processes all agencies' active automations |
-| `generate-briefing-daily` | `5 7 * * *` (7:05 AM UTC) | `generate-briefing` | Generates daily briefings for all agencies |
-
-Both jobs use `pg_net` HTTP POST to invoke edge functions with `agencyId: "all"`.
-
----
-
-## 6. Application Pages & Wireframes
-
-### Navigation Structure (Sidebar)
-
-```
-CORE
-├── Dashboard (/dashboard)
-├── Halevai AI (/halevai)
-├── Recommendations (/recommendations)
-├── Playbooks (/playbooks)
-└── Daily Briefing (/briefing)
-
-PIPELINE
-├── Caregivers (/caregivers)
-├── Enrollment Tracker (/enrollment)
-├── Campaigns (/campaigns)
-├── Campaign Builder (/campaign-builder)
-├── Landing Pages (/landing-pages)
-├── Content Calendar (/content)
-└── Ad Creatives (/creatives)
-
-RECRUITMENT AGENTS
-└── Talent Sourcing (/talent-sourcing)
-
-INTEL
-├── Competitors (/competitors)
-└── Reviews (/reviews)
-
-SYSTEM
-├── Automations (/automations)
-└── Settings (/settings)
-```
-
-### Page Details
-
-#### Dashboard (`/dashboard`)
-- Greeting banner with pipeline & spend summary
-- Caregiver funnel visualization (New → Contacted → Intake → Enrollment → Authorized → Active)
-- KPI cards: Total Spend, New This Week, **Recommended Rate** (from pay rate intel), Enrollment Rate
-- Quick Launch grid (6 actions: Add Caregiver, New Campaign, Source Candidates, Ask Halevai, View Pipeline, Daily Briefing)
-- Recruitment Agents stats panel (Sourced, Outreach Sent, Responded, Promoted)
-- Recent Activity feed
-
-#### Halevai AI Chat (`/halevai`)
-- Multi-conversation sidebar
-- Streaming AI responses with markdown rendering
-- Full agency context injection
-- Conversation persistence
-
-#### Campaigns (`/campaigns`) — 8-Tab Hub
-1. **Recruitment** — Card grid, inline metric editing, AI Optimize button
-2. **Marketing** — Same layout for marketing campaigns
-3. **Social** — Social campaign cards
-4. **Community** — Event-style community campaign cards
-5. **Sources** — Referral sources table + "Discover Sources" AI button
-6. **Performance** — Recharts dashboard: spend by channel (bar), CPA trend (line), conversions (pie), date range selector
-7. **Templates** — Saved campaign template grid with search/filter
-8. **Sequences** — Inline step editor, AI step generation, enrollment tracking
-
-#### Campaign Builder (`/campaign-builder`) — 4-Step Wizard
-1. **Select Platforms** — 16+ platform cards (Indeed, ZipRecruiter, Care.com, Facebook, Instagram, Google Ads, etc.), multi-select
-2. **Campaign Details** — Full form: name, type, states, counties, language, budget, dates, target CPA, auto-pause threshold
-3. **AI Generation** — Calls `campaign-optimizer` in `full_package` mode, collapsible per-platform results, inline editing
-4. **Review & Launch** — Summary view, Create Campaign / Save Draft / Download Package buttons
-
-#### Ad Creatives (`/creatives`)
-- Creative card grid with image previews
-- Generate modal: prompt input, auto-prompt, platform size selector
-- A/B comparison mode (select 2 creatives for side-by-side)
-- Download and delete actions
-
-#### Content Calendar (`/content`)
-- Calendar view (month grid) + List view toggle
-- Generate modal: platform multi-select, topic, state, language, count
-- Bulk actions in list view: multi-select → schedule/publish/delete
-- Post detail cards with status badges
-
-#### Landing Pages (`/landing-pages`)
-- Page card grid with views/submissions stats
-- AI builder modal (title, state, county, language → generates full page)
-- Per-page analytics panel: views over time chart, UTM source/medium breakdown
-- Publish/unpublish toggle, copy public URL
-- **Public route:** `/lp/:slug` renders full landing page with:
-  - Hero section with pay rate badge
-  - Benefits grid
-  - Testimonials
-  - Application form (creates caregiver lead)
-  - FAQ accordion
-  - Agency footer
-  - Automatic `landing_page_events` tracking
-
-#### Competitors (`/competitors`)
-- **Pay Rate Intelligence panel** — AI-recommended rate, Medicaid ceiling, market range, competitor count, margin analysis
-- "Analyze Pay Rates" button → triggers `analyze-pay-rates` edge function (Firecrawl + AI)
-- Competitor tracker table: name, state, rating, reviews, pay range, est. spend, threat level
-
-#### Reviews (`/reviews`)
-- Review cards with star ratings
-- Solicitation tab: select caregivers → send review requests
-- AI response drafting for each review
-- Dashboard: rating distribution chart, response rate stats
-
-#### Recommendations (`/recommendations`)
-- Pending/Approved tabs
-- One-click "Approve & Launch" (creates campaign from recommendation)
-- Dismiss with reason selection
-- Campaign Packages tab with Overview/Tracking/Launch Guide detail view
-
-#### Playbooks (`/playbooks`)
-- 10 pre-built playbook cards with category filtering
-- Search functionality
-- Execute button → calls `campaign-optimizer` in `playbook_execution` mode
-- Execution result dialog showing created campaigns & recommendations
-- Categories: recruitment, marketing, community, competitive, retention, operations
-
-#### Enrollment Tracker (`/enrollment`)
-- Pipeline stages with counts
-- Advance caregivers through stages
-- Background check status dropdown
-- Edit dialog for patient/representative details
-- Stuck enrollment alerts (>30 days)
-
-#### Talent Sourcing (`/talent-sourcing`)
-- 5 tabs: Campaigns, Candidates, Agent Activity, Sequences, Phone Screening
-- Sourcing campaign management (create, toggle active/paused)
-- Candidate cards with match scores
-- Outreach status tracking
-- "Promote to Pipeline" action (creates caregiver from candidate)
-- AI phone screening with transcript and scoring display
-
-#### Caregivers (`/caregivers`)
-- Kanban-style pipeline view by status (New, Contacted, Intake Started, Enrollment Pending, Authorized, Active)
-- Search + filters (state, county, tier, source)
-- Add Caregiver dialog
-- Export CSV
-- Detail sheet with: contact info, lead score/tier, patient info, enrollment timeline, **Suggested Offer Rate** (from pay rate intel), activity log
-- Drag cards between columns to update status
-- Compose SMS/Email dialog with message logging
-
-#### Automations (`/automations`)
-- Toggle-able automation cards with descriptions
-- Active/inactive badge and last run timestamp
-- Actions this week counter
-- "Run Now" button to trigger all automations immediately
-
-#### Settings (`/settings`)
-- Agency Profile tab (name, email, phone, website, states)
-- Branding tab (colors, logo, tagline, social URLs)
-- **Integrations tab** — API key management for:
-  - Twilio (SMS): Account SID, Auth Token, Phone Number
-  - SendGrid (Email): API Key
-  - Clay (Candidate Sourcing): API Key
-  - GoHighLevel (CRM & Outreach): API Key, Sub-Account ID
-  - Bland AI (Phone Screening): API Key
-  - Per-key status indicators: Connected / Saved (untested) / Not configured
-  - Show/hide toggle for sensitive values
-- Notifications tab
-- Team Members tab
-
----
-
-## 7. Authentication Flow
-
-1. **Sign Up:** Email + password → email verification required (auto-confirm disabled)
-2. **Sign In:** Email + password
-3. **Password Reset:** Email-based reset flow (`/reset-password`)
-4. **Post-Auth:** Check for agency membership → if none, redirect to `/onboarding`
-5. **Onboarding:** 5-step wizard: Agency Name → States & Counties → Programs & Rates → Goals & Budget → AI Strategy Generation
-6. **Protected Routes:** All app routes wrapped in `<ProtectedRoute>` component
-7. **Anonymous signup:** Disabled
-
----
-
-## 8. Data Flow Architecture
-
-```
-User Action
-    ↓
-React Component (TanStack Query)
-    ↓
-Supabase Client SDK
-    ↓
-PostgreSQL (RLS enforced)
-    ↓
-Edge Function (for AI operations)
-    ↓
-Lovable AI Gateway (Gemini models)
-    ↓
-Response → DB persist → Query invalidation → UI update
-```
-
-### Messaging Flow
-```
-ComposeMessageDialog → supabase.functions.invoke("send-message")
-    ↓
-send-message Edge Function
-    ├── SMS → Twilio API (api_keys lookup)
-    ├── Email → SendGrid API (branded HTML, api_keys lookup)
-    └── In-App → notifications table insert
-    ↓
-message_log INSERT (audit trail)
-    ↓
-Response → UI toast
-```
-
-### Talent Sourcing Flow
-```
-Source Candidates → source-candidates Edge Function → Clay API
-    ↓
-sourced_candidates table
-    ↓
-Trigger Outreach → trigger-outreach Edge Function → GoHighLevel API
-    ↓
-AI Phone Screen → ai-phone-screen Edge Function → Bland AI
-    ↓
-phone_screens table (transcript, score, recommendation)
-    ↓
-Promote to Pipeline → caregivers table
-```
-
-### Automated Flow (Cron)
-```
-pg_cron (7:00 AM UTC daily)
-    ↓
-pg_net HTTP POST → Edge Function
-    ↓
-Iterates all agencies
-    ↓
-Executes automations / generates briefings
-    ↓
-Creates notifications, updates scores, flags stale records
-```
-
-### Key Patterns
-- **Agency scoping:** All queries filter by `agencyId` from `useAuth()` hook
-- **Generic query hook:** `useAgencyQuery<T>(key, table, options)` handles all standard table queries
-- **Mutations:** Direct Supabase SDK calls with manual `queryClient.invalidateQueries()`
-- **Edge function calls:** `supabase.functions.invoke("function-name", { body: {...} })`
-- **Multi-agency batch:** Edge functions accept `agencyId: "all"` for cron-triggered processing
-
----
-
-## 9. File Structure
+## 1. FILE TREE
 
 ```
 src/
-├── assets/                  # Logo, brand images
+├── App.css
+├── App.tsx
+├── main.tsx
+├── vite-env.d.ts
+├── assets/
+│   ├── abstract-brand.png
+│   ├── care-at-home-logo.png
+│   ├── geometric-pattern.png
+│   ├── halevai-logo.png
+│   └── logo-transparent.png
 ├── components/
-│   ├── ui/                  # shadcn/ui components (50+ files)
-│   ├── AppLayout.tsx        # Main layout with sidebar
-│   ├── AppSidebar.tsx       # Navigation sidebar
-│   ├── ComposeMessageDialog.tsx  # SMS/Email message composition
-│   ├── IntegrationsTab.tsx  # API key management for integrations
-│   ├── NavLink.tsx          # Active-aware nav link
-│   ├── NotificationBell.tsx # Real-time notification indicator
-│   ├── ProtectedRoute.tsx   # Auth guard
-│   └── TeamMembers.tsx      # Team member management
+│   ├── AppLayout.tsx
+│   ├── AppSidebar.tsx
+│   ├── ComposeMessageDialog.tsx
+│   ├── IntegrationsTab.tsx
+│   ├── NavLink.tsx
+│   ├── NotificationBell.tsx
+│   ├── PermissionGate.tsx
+│   ├── ProtectedRoute.tsx
+│   ├── SequenceBuilder.tsx
+│   ├── TeamMembers.tsx
+│   └── ui/
+│       ├── accordion.tsx
+│       ├── alert-dialog.tsx
+│       ├── alert.tsx
+│       ├── aspect-ratio.tsx
+│       ├── avatar.tsx
+│       ├── badge.tsx
+│       ├── breadcrumb.tsx
+│       ├── button.tsx
+│       ├── calendar.tsx
+│       ├── card.tsx
+│       ├── carousel.tsx
+│       ├── chart.tsx
+│       ├── checkbox.tsx
+│       ├── collapsible.tsx
+│       ├── command.tsx
+│       ├── context-menu.tsx
+│       ├── dialog.tsx
+│       ├── drawer.tsx
+│       ├── dropdown-menu.tsx
+│       ├── form.tsx
+│       ├── hover-card.tsx
+│       ├── input-otp.tsx
+│       ├── input.tsx
+│       ├── label.tsx
+│       ├── menubar.tsx
+│       ├── navigation-menu.tsx
+│       ├── pagination.tsx
+│       ├── popover.tsx
+│       ├── progress.tsx
+│       ├── radio-group.tsx
+│       ├── resizable.tsx
+│       ├── scroll-area.tsx
+│       ├── select.tsx
+│       ├── separator.tsx
+│       ├── sheet.tsx
+│       ├── sidebar.tsx
+│       ├── skeleton.tsx
+│       ├── slider.tsx
+│       ├── sonner.tsx
+│       ├── states.tsx
+│       ├── switch.tsx
+│       ├── table.tsx
+│       ├── tabs.tsx
+│       ├── textarea.tsx
+│       ├── toast.tsx
+│       ├── toaster.tsx
+│       ├── toggle-group.tsx
+│       ├── toggle.tsx
+│       └── tooltip.tsx
 ├── hooks/
-│   ├── useAuth.tsx          # Auth context (user, agencyId, role, signIn, signOut)
-│   ├── useAgencyData.ts     # All data hooks (30+ exports)
-│   ├── use-mobile.tsx       # Mobile breakpoint detection
-│   └── use-toast.ts         # Toast notification hook
+│   ├── use-mobile.tsx
+│   ├── use-toast.ts
+│   ├── useAgencyData.ts
+│   ├── useAuth.tsx
+│   ├── useDebouncedValue.ts
+│   └── usePageTitle.ts
 ├── integrations/
+│   ├── lovable/
+│   │   └── index.ts
 │   └── supabase/
-│       ├── client.ts        # Auto-generated Supabase client
-│       └── types.ts         # Auto-generated TypeScript types
-├── pages/                   # 24 page components
-├── lib/utils.ts             # cn() utility
-├── index.css                # Design tokens & custom styles
-└── main.tsx                 # Entry point
+│       ├── client.ts
+│       └── types.ts
+├── lib/
+│   ├── formatters.ts
+│   ├── permissions.ts
+│   └── utils.ts
+├── pages/
+│   ├── AdCreatives.tsx
+│   ├── Auth.tsx
+│   ├── Automations.tsx
+│   ├── Briefing.tsx
+│   ├── CampaignBuilder.tsx
+│   ├── Campaigns.tsx
+│   ├── Caregivers.tsx
+│   ├── Competitors.tsx
+│   ├── ContentCalendar.tsx
+│   ├── Dashboard.tsx
+│   ├── Enrollment.tsx
+│   ├── HalevaiChat.tsx
+│   ├── Inbox.tsx
+│   ├── Index.tsx
+│   ├── LandingPages.tsx
+│   ├── NotFound.tsx
+│   ├── Onboarding.tsx
+│   ├── PlaceholderPage.tsx
+│   ├── Playbooks.tsx
+│   ├── PublicLandingPage.tsx
+│   ├── Recommendations.tsx
+│   ├── ResetPassword.tsx
+│   ├── Reviews.tsx
+│   ├── Settings.tsx
+│   └── TalentSourcing.tsx
+└── test/
+    ├── example.test.ts
+    └── setup.ts
 
 supabase/
-├── config.toml              # Edge function configuration (15 functions)
-├── functions/
-│   ├── ai-phone-screen/     # AI phone screening via Bland AI
-│   ├── analyze-pay-rates/   # AI + Firecrawl pay rate analysis
-│   ├── campaign-optimizer/  # Multi-mode marketing AI
-│   ├── discover-sources/    # Referral source discovery
-│   ├── generate-briefing/   # Daily briefing generation
-│   ├── generate-content/    # Social content generation
-│   ├── generate-creative/   # Ad image + copy generation
-│   ├── generate-landing-content/  # Landing page AI
-│   ├── halevai-chat/        # Conversational AI
-│   ├── post-to-ads/         # Platform posting
-│   ├── run-automations/     # Automation execution engine (27 keys)
-│   ├── score-leads/         # Lead scoring
-│   ├── send-message/        # Unified messaging (SMS/email/in-app)
-│   ├── source-candidates/   # Clay-powered candidate sourcing
-│   └── trigger-outreach/    # GHL outreach automation
-└── migrations/              # Database migrations (read-only)
+├── config.toml
+└── functions/
+    ├── ai-phone-screen/index.ts
+    ├── analyze-pay-rates/index.ts
+    ├── campaign-optimizer/index.ts
+    ├── discover-sources/index.ts
+    ├── generate-briefing/index.ts
+    ├── generate-content/index.ts
+    ├── generate-creative/index.ts
+    ├── generate-landing-content/index.ts
+    ├── halevai-chat/index.ts
+    ├── post-to-ads/index.ts
+    ├── run-automations/index.ts
+    ├── score-leads/index.ts
+    ├── send-message/index.ts
+    ├── source-candidates/index.ts
+    ├── trigger-outreach/index.ts
+    └── webhook-inbound/index.ts
 ```
 
 ---
 
-## 10. Storage Buckets
+## 2. ROUTE MAP
 
-| Bucket | Purpose | Access |
-|--------|---------|--------|
-| `ad-creatives` | AI-generated ad images | Public read, authenticated write |
-
----
-
-## 11. External Integrations
-
-| Integration | Purpose | Auth Method |
-|-------------|---------|-------------|
-| **Firecrawl** | Web scraping for competitor pay rates & job postings | API key via Lovable connector (`FIRECRAWL_API_KEY`) |
-| **Lovable AI Gateway** | AI model access (Gemini family) | `LOVABLE_API_KEY` (auto-provisioned) |
-| **Twilio** | SMS messaging for caregiver outreach | Per-agency API keys in `api_keys` table |
-| **SendGrid** | Branded email messaging | Per-agency API key in `api_keys` table |
-| **Clay** | Candidate sourcing and enrichment | Per-agency API key in `api_keys` table |
-| **GoHighLevel** | CRM workflows and outreach sequences | Per-agency API key + sub-account ID in `api_keys` table |
-| **Bland AI** | AI phone screening calls | Per-agency API key in `api_keys` table |
-
----
-
-## 12. Environment Variables
-
-| Variable | Source |
-|----------|--------|
-| `VITE_SUPABASE_URL` | Auto-configured |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Auto-configured |
-| `VITE_SUPABASE_PROJECT_ID` | Auto-configured |
-| `SUPABASE_URL` | Available in edge functions |
-| `SUPABASE_ANON_KEY` | Available in edge functions |
-| `SUPABASE_SERVICE_ROLE_KEY` | Available in edge functions |
-| `LOVABLE_API_KEY` | Lovable AI Gateway key (edge functions) |
-| `FIRECRAWL_API_KEY` | Firecrawl web scraping (managed by connector) |
+| Path | Component | Protected | Description |
+|------|-----------|-----------|-------------|
+| `/` | `Index` | No | Landing/marketing page |
+| `/auth` | `Auth` | No | Login/signup form |
+| `/reset-password` | `ResetPassword` | No | Password reset flow |
+| `/onboarding` | `Onboarding` | Yes | Post-signup agency setup wizard |
+| `/dashboard` | `Dashboard` | Yes | Main dashboard with KPIs |
+| `/caregivers` | `Caregivers` | Yes | Caregiver pipeline/CRM |
+| `/halevai` | `HalevaiChat` | Yes | AI chat assistant |
+| `/enrollment` | `Enrollment` | Yes | Enrollment tracking |
+| `/campaigns` | `Campaigns` | Yes | Campaign hub (filtered OR/MI) |
+| `/campaign-builder` | `CampaignBuilder` | Yes | Multi-platform campaign creation |
+| `/competitors` | `Competitors` | Yes | Competitor intel |
+| `/reviews` | `Reviews` | Yes | Review management |
+| `/recommendations` | `Recommendations` | Yes | AI recommendations |
+| `/playbooks` | `Playbooks` | Yes | Growth playbook library |
+| `/briefing` | `Briefing` | Yes | Daily AI briefing |
+| `/talent-sourcing` | `TalentSourcing` | Yes | Sourcing campaigns & candidates |
+| `/content` | `ContentCalendar` | Yes | Social media content calendar |
+| `/landing-pages` | `LandingPages` | Yes | Landing page builder |
+| `/creatives` | `AdCreatives` | Yes | AI ad creative generator |
+| `/automations` | `Automations` | Yes | Automation toggle panel |
+| `/settings` | `Settings` | Yes | Agency settings, branding, team, integrations |
+| `/inbox` | `Inbox` | Yes | Unified SMS/email inbox |
+| `/lp/:slug` | `PublicLandingPage` | No | Public-facing landing pages |
+| `*` | `NotFound` | No | 404 page |
 
 ---
 
-## 13. Security Configuration
+## 3. COMPONENT DEPENDENCY GRAPH
 
-### RLS Policies
-- All tables have Row Level Security enabled
-- Standard pattern: agency membership check via `agency_members` join
-- `agencies` INSERT restricted to `TO authenticated` role only
-- `landing_page_events` INSERT open with NOT NULL field validation + rate limiting trigger (60/min)
-- `profiles` restricted to own user only (`user_id = auth.uid()`)
-- `api_keys` restricted to owner/admin roles for all operations
-- `message_log` INSERT restricted to owner/admin; SELECT for all members
+### Layout Components
+- **AppLayout** → `AppSidebar`, `SidebarProvider`, `SidebarInset`
+- **AppSidebar** → `NavLink`, `NotificationBell`, `useAuth`, `useAgency`, `useUnreadCount`
+- **ProtectedRoute** → `useAuth` → redirects to `/auth` if no session
 
-### Auth Configuration
-- Email verification required (auto-confirm disabled)
-- Anonymous signups disabled
-- Password-based authentication only
+### Page → Hook/Component Dependencies
 
-### Database Functions (8 deployed)
-- `get_user_agency_id()` — Returns current user's agency ID (SECURITY DEFINER)
-- `is_agency_member(user_id, agency_id)` — Membership check
-- `has_agency_role(user_id, agency_id, role)` — Role-based check
-- `is_owner_or_admin(user_id, agency_id)` — Admin/owner check for sensitive operations
-- `get_user_agency_role(user_id, agency_id)` — Returns user's role
-- `handle_new_user()` — Auto-creates profile on signup (trigger)
-- `update_updated_at_column()` — Timestamp trigger
-- `check_landing_page_event_rate_limit()` — Rate limit trigger (60 events/min per page)
-
----
-
-## 14. What's Complete ✅
-
-- [x] All 30+ database tables with RLS policies
-- [x] 15 edge functions deployed and functional
-- [x] Full authentication flow with email verification
-- [x] 5-step onboarding wizard with AI strategy generation
-- [x] Dashboard with funnel visualization and KPIs
-- [x] Halevai AI chat with full agency context
-- [x] 8-tab Campaign Hub
-- [x] 4-step Campaign Builder with AI content generation
-- [x] Ad creative generation with real AI image output
-- [x] Content calendar with bulk actions
-- [x] Landing page builder + public rendering route (`/lp/:slug`)
-- [x] Landing page analytics with UTM tracking
-- [x] Review management with AI response drafting
-- [x] Review solicitation tracking
-- [x] Recommendation engine with approve & launch
-- [x] Campaign package management
-- [x] 10 pre-built growth playbooks with AI execution
-- [x] Talent sourcing with promote-to-pipeline
-- [x] AI phone screening (Bland AI integration)
-- [x] Candidate outreach automation (GoHighLevel)
-- [x] Enrollment tracker with stage advancement
-- [x] Settings with branding configuration
-- [x] **Integrations tab** — Twilio, SendGrid, Clay, GHL, Bland AI key management
-- [x] Competitor intelligence tracking
-- [x] **AI-powered competitive pay rate analysis** (Firecrawl + Gemini)
-- [x] **Pay rate intelligence on Dashboard, Competitors, and Caregiver detail**
-- [x] **Unified messaging gateway** (send-message edge function: SMS/email/in-app)
-- [x] **Branded email templates** using business_config
-- [x] **Message log** audit trail for all outbound communications
-- [x] **Compose Message dialog** for SMS/email from caregiver profile
-- [x] **Automated daily automations** (pg_cron at 7:00 AM UTC — 27 automation keys)
-- [x] **Automated daily briefing generation** (pg_cron at 7:05 AM UTC)
-- [x] **Lead scoring automation** with tier assignment (HOT/WARM/COLD)
-- [x] **Follow-up reminder automation** (3+ day stale contacts)
-- [x] **Performance alert automation** (spend threshold monitoring)
-- [x] **Stale enrollment alert automation** (14+ day stuck enrollments)
-- [x] **Auto welcome SMS, review request, background check reminders**
-- [x] **Auth expiry alerts** for upcoming authorization expirations
-- [x] **Agent activity logging** for all automation actions
-- [x] **Notification bell** with real-time updates
-- [x] **Team members** management component
-- [x] **Security audit passed** — tightened RLS policies, disabled anon signups, rate limiting
-
-## 15. Potential Future Enhancements
-
-- [ ] Canvas compositing for logo overlays on ad images
-- [ ] Direct API integration with ad platforms (Facebook Ads, Google Ads)
-- [ ] Real-time chat with caregivers via Twilio conversations
-- [ ] Multi-language UI (Hebrew, Spanish, Creole)
-- [ ] Role-based permissions (viewer, editor, admin, owner) with column-level RLS
-- [ ] Billing & subscription management
-- [ ] White-label / agency branding on public pages
-- [ ] Webhook endpoints for inbound SMS/email replies
-- [ ] Advanced sequence branching (if/then logic based on response)
-- [ ] Caregiver mobile app or portal
+| Page | Hooks Used | Components Used |
+|------|------------|-----------------|
+| Dashboard | useAgency, useCaregivers, useCampaigns, useReviews, useRecommendations, useActivityLog, useAuth | AppLayout, Card, Badge, Button |
+| Caregivers | useCaregivers, useAuth | AppLayout, Card, Badge, Dialog, Tabs |
+| HalevaiChat | useAuth | AppLayout, react-markdown |
+| Campaigns | useCampaigns, useAuth | AppLayout, Card, Badge, Button |
+| CampaignBuilder | useAuth | AppLayout, Card, Button, Badge |
+| TalentSourcing | useSourcingCampaigns, useSourcedCandidates, usePhoneScreens, useAuth | AppLayout, Card, Badge, Dialog |
+| Automations | useAutomations, useToggleAutomation, useAuth | AppLayout, Card, Switch, Dialog |
+| Inbox | useConversationThreads, useThreadMessages, useAuth | AppLayout, ComposeMessageDialog |
+| Settings | useAgency, useBusinessConfig, useApiKeys, useAuth, useAgencyMembers | AppLayout, IntegrationsTab, TeamMembers |
+| ContentCalendar | useContentPosts, useAuth | AppLayout, Card, Calendar |
+| LandingPages | useLandingPages, useAuth | AppLayout, Card, Dialog |
+| AdCreatives | useAdCreatives, useAuth | AppLayout, Card, Dialog |
+| Competitors | useCompetitors, usePayRateIntel, useAuth | AppLayout, Card, Badge |
+| Reviews | useReviews, useReviewRequests, useAuth | AppLayout, Card, Badge |
+| Recommendations | useRecommendations, useAuth | AppLayout, Card, Badge |
+| Playbooks | usePlaybooks, useAuth | AppLayout, Card, Badge |
+| Briefing | useAuth | AppLayout, Card |
+| Enrollment | useCaregivers, useAuth | AppLayout, Card, Badge |
+| Onboarding | useAuth | Card, Button, multi-step wizard |
+| PublicLandingPage | (none — public) | Standalone rendering |
 
 ---
 
-## 16. Key Data Hooks Reference (`useAgencyData.ts`)
+## 4. DESIGN SYSTEM — index.css
 
-| Hook | Table | Returns |
-|------|-------|---------|
-| `useAgency()` | `agencies` | Single agency |
-| `useCaregivers()` | `caregivers` | All caregivers |
-| `useCampaigns()` | `campaigns` | All campaigns |
-| `useCompetitors()` | `competitors` | All competitors |
-| `useReviews()` | `reviews` | All reviews |
-| `useContentPosts()` | `content_posts` | All content posts |
-| `useLandingPages()` | `landing_pages` | All landing pages |
-| `useSourcingCampaigns()` | `sourcing_campaigns` | All sourcing campaigns |
-| `useSourcedCandidates()` | `sourced_candidates` | All sourced candidates |
-| `useAutomations()` | `automation_configs` | All automation configs |
-| `useRecommendations()` | `halevai_recommendations` | All recommendations |
-| `usePlaybooks()` | `growth_playbooks` | All playbooks |
-| `useActivityLog()` | `activity_log` | Recent 20 entries |
-| `useAdCreatives()` | `ad_creatives` | All ad creatives |
-| `useBusinessConfig()` | `business_config` | Single config |
-| `useReferralSources()` | `referral_sources` | All referral sources |
-| `useCampaignTemplates()` | `saved_campaign_templates` | All templates |
-| `useCampaignSequences()` | `campaign_sequences` | All sequences |
-| `useSequenceSteps(id)` | `sequence_steps` | Steps for sequence |
-| `useSequenceEnrollments()` | `sequence_enrollments` | All enrollments |
-| `useCampaignPackages()` | `campaign_packages` | All packages |
-| `useLandingPageEvents()` | `landing_page_events` | All events |
-| `useReviewRequests()` | `review_requests` | All review requests |
-| `usePayRateIntel()` | `pay_rate_intel` | Latest analysis |
-| `useAgencyMembers()` | `agency_members` | All agency members |
-| `useApiKeys()` | `api_keys` | All integration keys |
-| `useMessageLog(limit)` | `message_log` | Recent messages |
-| `useAgentActivityLog()` | `agent_activity_log` | Recent 50 agent actions |
-| `usePhoneScreens()` | `phone_screens` | All phone screens |
-| `useToggleAutomation()` | `automation_configs` | Mutation: toggle active |
-| `useSaveApiKey()` | `api_keys` | Mutation: upsert key |
-| `useTestConnection()` | — | Mutation: test integration |
+```css
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 225 25% 6%;
+    --foreground: 210 40% 95%;
+    --card: 225 25% 9%;
+    --card-foreground: 210 40% 95%;
+    --popover: 225 25% 9%;
+    --popover-foreground: 210 40% 95%;
+    --primary: 195 100% 50%;
+    --primary-foreground: 225 25% 6%;
+    --secondary: 225 20% 14%;
+    --secondary-foreground: 210 40% 95%;
+    --muted: 225 20% 14%;
+    --muted-foreground: 225 15% 55%;
+    --accent: 270 80% 60%;
+    --accent-foreground: 210 40% 95%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 225 20% 16%;
+    --input: 225 20% 16%;
+    --ring: 195 100% 50%;
+    --radius: 0.75rem;
+    --sidebar-background: 225 25% 8%;
+    --sidebar-foreground: 225 15% 65%;
+    --sidebar-primary: 195 100% 50%;
+    --sidebar-primary-foreground: 225 25% 6%;
+    --sidebar-accent: 225 20% 14%;
+    --sidebar-accent-foreground: 210 40% 95%;
+    --sidebar-border: 225 20% 14%;
+    --sidebar-ring: 195 100% 50%;
+    --halevai-cyan: 195 100% 50%;
+    --halevai-purple: 270 80% 60%;
+    --halevai-navy: 225 25% 6%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+}
+
+@layer utilities {
+  .halevai-glow {
+    box-shadow: 0 0 20px hsl(195 100% 50% / 0.3), 0 0 60px hsl(195 100% 50% / 0.1);
+  }
+  .halevai-border {
+    border: 1px solid hsl(195 100% 50% / 0.2);
+  }
+  .halevai-text {
+    background: linear-gradient(135deg, hsl(195 100% 50%), hsl(270 80% 60%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .halevai-bg-gradient {
+    background: linear-gradient(135deg, hsl(195 100% 50% / 0.1), hsl(270 80% 60% / 0.1));
+  }
+  .font-data {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+}
+```
+
+---
+
+## 5. DESIGN SYSTEM — tailwind.config.ts
+
+```ts
+import type { Config } from "tailwindcss";
+
+export default {
+  darkMode: ["class"],
+  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  prefix: "",
+  theme: {
+    container: { center: true, padding: "2rem", screens: { "2xl": "1400px" } },
+    extend: {
+      fontFamily: {
+        sans: ["Space Grotesk", "sans-serif"],
+        data: ["IBM Plex Mono", "monospace"],
+      },
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
+        secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
+        destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
+        muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
+        accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
+        popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
+        card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar-background))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          primary: "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+          border: "hsl(var(--sidebar-border))",
+          ring: "hsl(var(--sidebar-ring))",
+        },
+        halevai: {
+          cyan: "hsl(var(--halevai-cyan))",
+          purple: "hsl(var(--halevai-purple))",
+          navy: "hsl(var(--halevai-navy))",
+        },
+      },
+      borderRadius: { lg: "var(--radius)", md: "calc(var(--radius) - 2px)", sm: "calc(var(--radius) - 4px)" },
+      keyframes: {
+        "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
+        "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        "pulse-glow": { "0%, 100%": { opacity: "0.4" }, "50%": { opacity: "1" } },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-glow": "pulse-glow 3s ease-in-out infinite",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+} satisfies Config;
+```
+
+---
+
+## 6. AUTH CONTEXT — useAuth.tsx
+
+```tsx
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Session, User } from "@supabase/supabase-js";
+import type { AgencyRole } from "@/lib/permissions";
+
+interface AuthContextType {
+  session: Session | null;
+  user: User | null;
+  loading: boolean;
+  agencyId: string | null;
+  agencyRole: AgencyRole | null;
+  isViewer: boolean;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType>({
+  session: null, user: null, loading: true, agencyId: null, agencyRole: null, isViewer: false, signOut: async () => {},
+});
+
+export const useAuth = () => useContext(AuthContext);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [agencyRole, setAgencyRole] = useState<AgencyRole | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s); setUser(s?.user ?? null); setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s); setUser(s?.user ?? null); setLoading(false);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      supabase.from("agency_members").select("agency_id, role").eq("user_id", user.id).limit(1).single()
+        .then(({ data }) => {
+          setAgencyId(data?.agency_id ?? null);
+          setAgencyRole((data?.role as AgencyRole) ?? null);
+        });
+    } else { setAgencyId(null); setAgencyRole(null); }
+  }, [user]);
+
+  const isViewer = agencyRole === "viewer";
+  const signOut = async () => { await supabase.auth.signOut(); };
+
+  return (
+    <AuthContext.Provider value={{ session, user, loading, agencyId, agencyRole, isViewer, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+```
+
+---
+
+## 7. PERMISSIONS — permissions.ts
+
+```ts
+export type AgencyRole = "owner" | "admin" | "operations_manager" | "intake_coordinator" | "viewer";
+
+export type PermissionAction =
+  | "view_dashboard" | "edit_caregivers" | "send_messages" | "manage_campaigns"
+  | "post_to_ads" | "run_automations" | "manage_api_keys" | "edit_branding"
+  | "manage_team" | "invite_members" | "change_roles" | "delete_agency" | "transfer_ownership";
+
+const PERMISSION_MATRIX: Record<PermissionAction, AgencyRole[]> = {
+  view_dashboard: ["owner", "admin", "operations_manager", "intake_coordinator", "viewer"],
+  edit_caregivers: ["owner", "admin", "operations_manager", "intake_coordinator"],
+  send_messages: ["owner", "admin", "operations_manager", "intake_coordinator"],
+  manage_campaigns: ["owner", "admin", "operations_manager"],
+  post_to_ads: ["owner", "admin", "operations_manager"],
+  run_automations: ["owner", "admin", "operations_manager"],
+  manage_api_keys: ["owner", "admin"],
+  edit_branding: ["owner", "admin"],
+  manage_team: ["owner", "admin"],
+  invite_members: ["owner", "admin"],
+  change_roles: ["owner"],
+  delete_agency: ["owner"],
+  transfer_ownership: ["owner"],
+};
+
+export function hasPermission(role: string | null | undefined, action: PermissionAction): boolean {
+  if (!role) return false;
+  return PERMISSION_MATRIX[action]?.includes(role as AgencyRole) ?? false;
+}
+
+export function isWriteRole(role: string | null | undefined): boolean {
+  return hasPermission(role, "edit_caregivers");
+}
+
+export const ROLE_LABELS: Record<AgencyRole, string> = {
+  owner: "Owner", admin: "Admin", operations_manager: "Ops Manager",
+  intake_coordinator: "Intake Coordinator", viewer: "Viewer",
+};
+```
+
+---
+
+## 8. DATA HOOKS — useAgencyData.ts (Full Source)
+
+```ts
+// See src/hooks/useAgencyData.ts — 320 lines
+// Key exports:
+
+// Generic agency-scoped query:
+function useAgencyQuery<T>(key, table, options?) → useQuery
+
+// Entity hooks:
+export const useAgency = ()           // Single agency record
+export const useCaregivers = ()       // caregivers table
+export const useCampaigns = ()        // campaigns table
+export const useCompetitors = ()      // competitors table
+export const useReviews = ()          // reviews table
+export const useContentPosts = ()     // content_posts table
+export const useLandingPages = ()     // landing_pages table
+export const useSourcingCampaigns = () // sourcing_campaigns table
+export const useSourcedCandidates = () // sourced_candidates table
+export const useAutomations = ()      // automation_configs table
+export const useRecommendations = ()  // halevai_recommendations table
+export const usePlaybooks = ()        // growth_playbooks (includes agency_id IS NULL globals)
+export const useActivityLog = ()      // activity_log (limit 20)
+export const useAdCreatives = ()      // ad_creatives table
+export const useBusinessConfig = ()   // business_config (maybeSingle)
+export const useReferralSources = ()  // referral_sources table
+export const useCampaignTemplates = () // saved_campaign_templates table
+export const useCampaignSequences = () // campaign_sequences table
+export const useSequenceSteps = (id?) // sequence_steps (filtered by sequence_id)
+export const useSequenceEnrollments = () // sequence_enrollments table
+export const useCampaignPackages = ()  // campaign_packages table
+export const useLandingPageEvents = () // landing_page_events table
+export const useReviewRequests = ()    // review_requests table
+export const useAgencyMembers = ()     // agency_members table
+export const usePayRateIntel = ()      // pay_rate_intel (latest 1)
+export const useApiKeys = ()           // api_keys table (owner/admin only)
+export const useMessageLog = (limit?)  // message_log table
+export const useAgentActivityLog = ()  // agent_activity_log (limit 50)
+export const usePhoneScreens = ()      // phone_screens table
+export const useConversationThreads = () // conversation_threads table
+export const useUnreadCount = ()       // Sum of unread_count from open threads
+export const useThreadMessages = (phone, email, channel) // Merged in/outbound messages
+export const useInboundMessages = ()   // inbound_messages table
+
+// Mutations:
+export const useToggleAutomation = () // Toggle automation_configs.active
+export const useSaveApiKey = ()       // Upsert api_keys
+export const useTestConnection = ()   // Test via send-message edge function
+```
+
+---
+
+## 9. DATABASE SCHEMA — types.ts (Enums & Functions)
+
+### Enums
+
+```ts
+agency_role: "owner" | "admin" | "operations_manager" | "intake_coordinator" | "viewer"
+campaign_type: "recruitment" | "marketing" | "social" | "community"
+lead_source: "indeed" | "ziprecruiter" | "care_com" | "craigslist" | "facebook" | "referral" | "community" | "organic" | "direct" | "poaching" | "other"
+lead_status: "new" | "contacted" | "intake_started" | "enrollment_pending" | "authorized" | "active" | "lost"
+```
+
+### Database Tables (29 total)
+
+activity_log, ad_creatives, agencies, agency_members, agent_activity_log, api_keys, automation_configs, business_config, campaign_packages, campaign_sequences, campaigns, caregiver_activities, caregivers, competitors, content_posts, conversation_threads, daily_briefings, growth_playbooks, halevai_conversations, halevai_messages, halevai_recommendations, inbound_messages, landing_page_events, landing_pages, locations, message_log, notifications, onboarding, pay_rate_intel, phone_screens, profiles, referral_sources, review_requests, reviews, saved_campaign_templates, sequence_enrollments, sequence_steps, sourced_candidates, sourcing_campaigns
+
+### Database Functions
+
+```sql
+get_user_agency_id() RETURNS uuid
+-- Returns agency_id for current auth.uid()
+
+has_agency_role(_user_id uuid, _agency_id uuid, _role agency_role) RETURNS boolean
+-- Check if user has specific role
+
+is_agency_member(_user_id uuid, _agency_id uuid) RETURNS boolean
+-- Check membership
+
+is_owner_or_admin(_user_id uuid, _agency_id uuid) RETURNS boolean
+-- Check owner or admin role
+
+is_write_role(_user_id uuid, _agency_id uuid) RETURNS boolean
+-- Check owner/admin/ops_manager/intake_coordinator
+
+get_user_agency_role(_user_id uuid, _agency_id uuid) RETURNS agency_role
+-- Get the role enum value
+
+handle_new_user() RETURNS trigger
+-- Auto-create profile on signup
+
+update_updated_at_column() RETURNS trigger
+-- Auto-update updated_at timestamp
+
+check_landing_page_event_rate_limit() RETURNS trigger
+-- Rate limit: max 60 events/minute per landing page
+```
+
+---
+
+## 10. RLS POLICIES
+
+### Pattern A: Agency member access (most tables)
+```sql
+-- Used by: activity_log, ad_creatives, caregiver_activities, caregivers, content_posts,
+-- campaign_packages, campaign_sequences, conversation_threads, daily_briefings,
+-- halevai_conversations, halevai_recommendations, landing_pages, locations,
+-- phone_screens, referral_sources, review_requests, reviews, saved_campaign_templates
+CREATE POLICY "Agency members can access [table]"
+ON public.[table] FOR ALL
+USING (agency_id IN (SELECT agency_id FROM agency_members WHERE user_id = auth.uid()));
+```
+
+### Pattern B: Owner/admin write, member read
+```sql
+-- Used by: campaigns, competitors, automation_configs, pay_rate_intel, business_config
+CREATE POLICY "Members can view" FOR SELECT USING (is_agency_member(auth.uid(), agency_id));
+CREATE POLICY "Owner/admin can modify" FOR ALL
+  USING (is_owner_or_admin(auth.uid(), agency_id))
+  WITH CHECK (is_owner_or_admin(auth.uid(), agency_id));
+```
+
+### Pattern C: User-scoped
+```sql
+-- notifications
+CREATE POLICY "Agency members can access notifications" FOR ALL USING (user_id = auth.uid());
+
+-- profiles
+CREATE POLICY "Users can view own profile" FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can update own profile" FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Auto-create profile" FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- onboarding
+CREATE POLICY "Users can manage own onboarding" FOR ALL USING (user_id = auth.uid());
+```
+
+### Pattern D: Special cases
+```sql
+-- agencies: Authenticated INSERT, member SELECT, owner UPDATE, no DELETE
+-- agency_members: Own INSERT, member SELECT, owner UPDATE/DELETE
+-- api_keys: owner/admin for ALL operations
+-- halevai_messages: Nested join through conversations
+-- growth_playbooks: agency_id IS NULL OR member check (global + agency-specific)
+-- landing_page_events: Anyone INSERT (with validation), member SELECT only
+-- inbound_messages: member SELECT + UPDATE only (no INSERT/DELETE from client)
+-- message_log: member SELECT, owner/admin INSERT only
+```
+
+---
+
+## 11. DATABASE FUNCTIONS & TRIGGERS
+
+```sql
+-- Auto-create profile on user signup
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Rate limit landing page events
+CREATE TRIGGER check_lp_event_rate_limit
+  BEFORE INSERT ON public.landing_page_events
+  FOR EACH ROW EXECUTE FUNCTION public.check_landing_page_event_rate_limit();
+```
+
+---
+
+## 12. EDGE FUNCTION CONFIG — config.toml
+
+```toml
+project_id = "jpyjqnucuebmknnykmyf"
+
+[functions.halevai-chat]
+verify_jwt = false
+
+[functions.campaign-optimizer]
+verify_jwt = false
+
+[functions.generate-content]
+verify_jwt = false
+
+[functions.generate-landing-content]
+verify_jwt = false
+
+[functions.generate-creative]
+verify_jwt = false
+
+[functions.post-to-ads]
+verify_jwt = false
+
+[functions.discover-sources]
+verify_jwt = false
+
+[functions.run-automations]
+verify_jwt = false
+
+[functions.generate-briefing]
+verify_jwt = false
+
+[functions.score-leads]
+verify_jwt = false
+
+[functions.analyze-pay-rates]
+verify_jwt = false
+
+[functions.send-message]
+verify_jwt = false
+
+[functions.source-candidates]
+verify_jwt = false
+
+[functions.trigger-outreach]
+verify_jwt = false
+
+[functions.ai-phone-screen]
+verify_jwt = false
+
+[functions.webhook-inbound]
+verify_jwt = false
+```
+
+---
+
+## 13. EDGE FUNCTION SOURCE CODE
+
+### 13.1 halevai-chat/index.ts
+**Purpose:** Streaming AI chat assistant with full agency context
+**Auth:** Bearer token → getUser() → agency_members lookup
+**AI Model:** google/gemini-3-flash-preview via Lovable AI Gateway (streaming)
+**Context loaded:** 21 parallel queries covering caregivers, campaigns, competitors, reviews, content, landing pages, sourcing, automations, recommendations, sourced candidates, phone screens, agent activity, API keys, message log
+
+<details><summary>Full source (278 lines)</summary>
+
+```ts
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
+
+// ... [Full source as shown in halevai-chat/index.ts above - 278 lines]
+```
+</details>
+
+### 13.2 send-message/index.ts
+**Purpose:** Unified SMS (Twilio), Email (SendGrid), In-App notification sender
+**Auth:** None (service role key, called by other functions)
+**External APIs:** Twilio REST API, SendGrid v3 API
+
+<details><summary>Full source (228 lines)</summary>
+
+```ts
+// Accepts: { agency_id, channel: "sms"|"email"|"in_app", to, subject?, body, template?, related_type?, related_id?, user_id? }
+// Returns: { success, message_id, status, mock, error? }
+// If Twilio/SendGrid not configured: logs message with status="pending", mock=true
+```
+</details>
+
+### 13.3 run-automations/index.ts
+**Purpose:** Master automation runner — executes all active automations for an agency
+**Auth:** None (service role key)
+**Handlers (14):**
+- `lead_scoring` / `auto_lead_scoring` / `auto_score_caregivers` → score unscored caregivers
+- `follow_up_reminders` / `auto_followup_sms` → 3-day stale follow-ups with escalating messages
+- `performance_alerts` / `campaign_pause_alerts` → spend threshold notifications
+- `stale_enrollment_alerts` / `enrollment_stale_alert` → 14-day stale enrollment nudges
+- `auto_welcome_sms` → welcome SMS to new leads (< 24h old)
+- `auto_source_candidates` → run active sourcing campaigns
+- `auto_outreach_high_match` → trigger outreach for match_score >= 70
+- `auto_screen_responded` → AI phone screen for responded candidates
+- `auto_review_request` → review solicitation for active caregivers
+- `background_check_reminder` → 7-day BG check reminders
+- `auth_expiry_alert` → 30-day authorization expiry alerts
+- `process_sequences` → full sequence engine (message/condition/action/wait steps)
+
+**Full source: 679 lines** (see run-automations/index.ts)
+
+### 13.4 score-leads/index.ts
+**Purpose:** Lead scoring algorithm
+**Scoring formula (0-100):**
+- Phone: +8, Email: +7
+- State: +5, County: +5
+- Currently caregiving: +10, Experience: +1-5
+- Patient name: +8, Medicaid ID: +7, Active Medicaid: +5
+- Transportation: +5, Availability: +5
+- Recency: +4/+7/+10, BG check passed: +5
+- Recent contact: +5/+10
+**Tiers:** HOT ≥70, WARM ≥40, COLD <40
+
+### 13.5 source-candidates/index.ts
+**Purpose:** Candidate sourcing via Clay API (or mock data)
+**Modes:** `search` (find new), `enrich` (add contact info)
+**Mock fallback:** Generates 5 realistic candidates when Clay not configured
+
+### 13.6 trigger-outreach/index.ts
+**Purpose:** Multi-step outreach sequences for sourced candidates
+**Sequences:** `caregiver_cold` (5 steps over 14 days), `poaching` (5 steps over 21 days)
+**Integration:** GoHighLevel (GHL) contact sync + send-message
+
+### 13.7 ai-phone-screen/index.ts
+**Purpose:** Automated AI phone screening via Bland AI
+**Flow:** Create call → Poll for completion → AI analysis → Auto-promote high scorers
+**AI Analysis:** Extracts screening_answers, ai_score, ai_recommendation
+**Auto-promotion:** score ≥70 + recommendation "advance" → create caregiver record
+
+### 13.8 campaign-optimizer/index.ts
+**Purpose:** AI-powered campaign management
+**Modes:** `template`, `optimization`, `full_package`, `initial_strategy`, `playbook_execution`
+**Auth:** getClaims() JWT validation
+**AI:** Uses function calling (tools) for structured output
+
+### 13.9 generate-content/index.ts
+**Purpose:** AI social media content generation
+**Auth:** getClaims() JWT validation
+**Returns:** Array of posts with platform, title, body, hashtags, image_prompt
+
+### 13.10 generate-landing-content/index.ts
+**Purpose:** AI landing page content generation
+**Auth:** getClaims() JWT validation
+**Returns:** hero_headline, hero_subheadline, benefits, testimonials, faq, meta tags
+
+### 13.11 generate-creative/index.ts
+**Purpose:** AI ad copy + image generation
+**Auth:** getUser() validation
+**Image:** Uses google/gemini-2.5-flash-image model, uploads to ad-creatives bucket
+
+### 13.12 post-to-ads/index.ts
+**Purpose:** Post campaigns to ad platforms
+**Actions:** `check_credentials`, `post`
+**Platforms:** Facebook/Meta (real API), Google Ads (credential verify), Indeed, ZipRecruiter, Craigslist (AI-generated posting)
+**Auth:** getClaims() JWT validation
+
+### 13.13 discover-sources/index.ts
+**Purpose:** AI-powered referral source discovery
+**Auth:** getClaims() JWT validation
+**Output:** 8-12 community sources (churches, centers, orgs) saved to referral_sources table
+
+### 13.14 generate-briefing/index.ts
+**Purpose:** Daily briefing generation
+**Auth:** None (service role)
+**Output:** Pipeline stats, campaign metrics, action items, wins → daily_briefings table
+
+### 13.15 analyze-pay-rates/index.ts
+**Purpose:** Competitive pay rate analysis
+**Auth:** getClaims() JWT validation
+**Data sources:** Firecrawl web scraping + competitor DB + AI analysis
+**Output:** recommended_rate, market rates, analysis → pay_rate_intel table
+
+### 13.16 webhook-inbound/index.ts
+**Purpose:** Receive inbound SMS (Twilio) and email (SendGrid) webhooks
+**Auth:** None (public webhook)
+**Flow:** Parse message → Match agency → Match caregiver/candidate → Create inbound_messages → Update/create conversation_threads → Create notifications → Auto-detect keywords (YES/STOP) → Update statuses
+
+---
+
+## 14. EDGE FUNCTION REQUEST/RESPONSE CONTRACTS
+
+### halevai-chat
+```ts
+// Request (POST, Auth: Bearer)
+{ messages: Array<{ role: "user"|"assistant", content: string }> }
+// Response: SSE stream (text/event-stream)
+```
+
+### send-message
+```ts
+// Request (POST, no auth)
+{ agency_id: string, channel: "sms"|"email"|"in_app", to: string, subject?: string, body: string, template?: string, related_type?: string, related_id?: string, user_id?: string }
+// Response
+{ success: boolean, message_id: string|null, status: string, mock: boolean, error?: string }
+```
+
+### run-automations
+```ts
+// Request (POST, no auth)
+{ agencyId: string | "all" }
+// Response
+{ results: Array<{ agency: string, results: Array<{ key: string, actions: number }> }> }
+```
+
+### score-leads
+```ts
+// Request (POST, no auth)
+{ agencyId: string }
+// Response
+{ scored: number }
+```
+
+### source-candidates
+```ts
+// Request (POST, no auth)
+{ agency_id: string, campaign_id: string, mode: "search"|"enrich" }
+// Response
+{ success: boolean, mock: boolean, candidates_created: number, candidates_enriched: number }
+```
+
+### trigger-outreach
+```ts
+// Request (POST, no auth)
+{ agency_id: string, sourced_candidate_ids: string[], sequence_type: "caregiver_cold"|"poaching" }
+// Response
+{ success: boolean, mock: boolean, sent: number }
+```
+
+### ai-phone-screen
+```ts
+// Request (POST, no auth)
+{ agency_id: string, sourced_candidate_id?: string, caregiver_id?: string, phone_number: string, state?: string }
+// Response
+{ success: boolean, mock: boolean, screen_id: string, call_id?: string, message?: string }
+```
+
+### campaign-optimizer
+```ts
+// Request (POST, Auth: Bearer)
+{ mode: "template"|"optimization"|"full_package"|"initial_strategy"|"playbook_execution", agencyId: string, campaignId?: string, platforms?: string[], campaignDetails?: object, playbookId?: string }
+// Response
+{ mode: string, result: object }
+```
+
+### generate-content
+```ts
+// Request (POST, Auth: Bearer)
+{ agencyId: string, platforms?: string[], topic?: string, state?: string, language?: string, count?: number }
+// Response
+{ posts: Array<{ platform, title, body, hashtags, image_prompt, suggested_posting_time }> }
+```
+
+### generate-landing-content
+```ts
+// Request (POST, Auth: Bearer)
+{ agencyId: string, state?: string, county?: string, language?: string }
+// Response
+{ hero_headline, hero_subheadline, hero_cta_text, benefits, testimonials, faq, pay_rate_highlight, meta_title, meta_description, ... }
+```
+
+### generate-creative
+```ts
+// Request (POST, Auth: Bearer)
+{ agencyId: string, prompt: string, platform?: string, campaignId?: string }
+// Response
+{ headline: string, body_copy: string, prompt: string, platform: string, image_url: string|null }
+```
+
+### post-to-ads
+```ts
+// Request (POST, Auth: Bearer)
+{ action: "check_credentials"|"post", agencyId: string, campaignId?: string, platform?: string, content?: object }
+// Response (check_credentials)
+{ platforms: Record<string, { connected: boolean, missingKeys: string[], setupUrl: string }> }
+// Response (post)
+{ success: boolean, externalId?: string, platform: string, manual?: boolean, simulated?: boolean, message?: string, error?: string }
+```
+
+### discover-sources
+```ts
+// Request (POST, Auth: Bearer)
+{ agencyId: string, state?: string, county?: string, language?: string, sourceTypes?: string[] }
+// Response
+{ sources: Array<{name, source_type, state, county, language_community, url, notes}>, discovery_summary: string, total_discovered: number, total_saved: number, duplicates_skipped: number }
+```
+
+### generate-briefing
+```ts
+// Request (POST, no auth)
+{ agencyId: string | "all", userId?: string }
+// Response
+{ results: Array<{ agency: string, id?: string, message?: string, error?: string }> }
+```
+
+### analyze-pay-rates
+```ts
+// Request (POST, Auth: Bearer)
+{ agency_id: string, state?: string, county?: string }
+// Response
+{ success: boolean, recommended_rate: number, medicaid_reimbursement_rate: number, market_avg_rate: number, market_min_rate: number, market_max_rate: number, analysis_summary: string, ... }
+```
+
+### webhook-inbound
+```ts
+// Request: Twilio (application/x-www-form-urlencoded) or SendGrid (JSON/multipart)
+// Response: "<Response></Response>" (XML for Twilio) or "OK" (for SendGrid)
+```
+
+---
+
+## 15. ENVIRONMENT VARIABLES PER FUNCTION
+
+| Function | SUPABASE_URL | SUPABASE_SERVICE_ROLE_KEY | SUPABASE_ANON_KEY | LOVABLE_API_KEY | FIRECRAWL_API_KEY |
+|----------|:---:|:---:|:---:|:---:|:---:|
+| halevai-chat | ✅ | ✅ | ✅ (PUBLISHABLE) | ✅ | |
+| send-message | ✅ | ✅ | | | |
+| run-automations | ✅ | ✅ | | | |
+| score-leads | ✅ | ✅ | | | |
+| source-candidates | ✅ | ✅ | | | |
+| trigger-outreach | ✅ | ✅ | | | |
+| ai-phone-screen | ✅ | ✅ | | ✅ | |
+| campaign-optimizer | ✅ | ✅ | ✅ | ✅ | |
+| generate-content | ✅ | ✅ | ✅ | ✅ | |
+| generate-landing-content | ✅ | ✅ | ✅ | ✅ | |
+| generate-creative | ✅ | ✅ | ✅ | ✅ | |
+| post-to-ads | ✅ | ✅ | ✅ | ✅ | |
+| discover-sources | ✅ | ✅ | ✅ | ✅ | |
+| generate-briefing | ✅ | ✅ | | | |
+| analyze-pay-rates | ✅ | | ✅ | ✅ | ✅ |
+| webhook-inbound | ✅ | ✅ | | | |
+
+### Agency-level API keys (stored in `api_keys` table, per agency)
+
+| Key Name | Used By | External API |
+|----------|---------|--------------|
+| twilio_account_sid | send-message | Twilio |
+| twilio_auth_token | send-message | Twilio |
+| twilio_phone_number | send-message, webhook-inbound | Twilio |
+| sendgrid_api_key | send-message | SendGrid |
+| sendgrid_inbound_domain | webhook-inbound | SendGrid |
+| clay_api_key | source-candidates | Clay.com |
+| bland_ai_api_key | ai-phone-screen | Bland AI |
+| ghl_api_key | trigger-outreach | GoHighLevel |
+| ghl_subaccount_id | trigger-outreach | GoHighLevel |
+| facebook_access_token | post-to-ads | Meta Ads API |
+| facebook_ad_account_id | post-to-ads | Meta Ads API |
+| google_ads_developer_token | post-to-ads | Google Ads |
+| google_ads_client_id | post-to-ads | Google Ads |
+| google_ads_client_secret | post-to-ads | Google Ads |
+| google_ads_refresh_token | post-to-ads | Google Ads |
+| indeed_api_key | post-to-ads | Indeed |
+| ziprecruiter_api_key | post-to-ads | ZipRecruiter |
+
+---
+
+## 16. SECRETS INVENTORY
+
+| Secret | Type | Notes |
+|--------|------|-------|
+| SUPABASE_SERVICE_ROLE_KEY | System | Auto-configured |
+| SUPABASE_DB_URL | System | Auto-configured |
+| SUPABASE_PUBLISHABLE_KEY | System | Auto-configured |
+| SUPABASE_URL | System | Auto-configured |
+| SUPABASE_ANON_KEY | System | Auto-configured |
+| LOVABLE_API_KEY | Platform | AI Gateway access |
+| FIRECRAWL_API_KEY | Connector | Web scraping for pay rate analysis |
+
+---
+
+## NOTES
+
+- **No pg_cron jobs configured** — automations are triggered manually via the "Run Now" button or could be wired to a cron endpoint externally
+- **Storage bucket:** `ad-creatives` (public) — stores AI-generated ad images
+- **All edge functions have `verify_jwt = false`** — auth is handled in-function via getClaims() or getUser() where required
+- **Mock fallbacks:** source-candidates, trigger-outreach, ai-phone-screen, and send-message all gracefully degrade to mock/pending when external API keys aren't configured
+- **AI Gateway:** All AI calls go through `https://ai.gateway.lovable.dev/v1/chat/completions` using LOVABLE_API_KEY — no OpenAI/Anthropic keys needed
