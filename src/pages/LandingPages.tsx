@@ -8,25 +8,32 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Globe, Plus, Eye, Sparkles, Loader2, BarChart3, ExternalLink } from "lucide-react";
-import { useLandingPages, useAgency } from "@/hooks/useAgencyData";
+import { Switch } from "@/components/ui/switch";
+import { Globe, Plus, Eye, Sparkles, Loader2, BarChart3, ExternalLink, ArrowLeft, Copy, Check } from "lucide-react";
+import { useLandingPages, useLandingPageEvents, useAgency } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { format, subDays, parseISO } from "date-fns";
 
 const LandingPages = () => {
   const { data: pages, isLoading, refetch } = useLandingPages();
+  const { data: events } = useLandingPageEvents();
   const { data: agency } = useAgency();
   const { agencyId } = useAuth();
   const all = pages || [];
+  const allEvents = events || [];
   const [createOpen, setCreateOpen] = useState(false);
   const [previewPage, setPreviewPage] = useState<any>(null);
+  const [analyticsPage, setAnalyticsPage] = useState<any>(null);
   const [title, setTitle] = useState("");
   const [state, setState] = useState("");
   const [county, setCounty] = useState("");
   const [language, setLanguage] = useState("english");
   const [generating, setGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleCreate = async () => {
     setGenerating(true);
@@ -35,7 +42,6 @@ const LandingPages = () => {
         body: { agencyId, state: state || agency?.primary_state, county, language },
       });
       if (error) throw error;
-
       const slug = (title || `${state}-${county}-${language}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-");
       const { error: insertErr } = await supabase.from("landing_pages").insert({
         agency_id: agencyId!,
@@ -63,6 +69,127 @@ const LandingPages = () => {
     }
     setGenerating(false);
   };
+
+  const togglePublish = async (page: any) => {
+    const { error } = await supabase.from("landing_pages").update({ published: !page.published }).eq("id", page.id);
+    if (error) toast.error("Failed to update");
+    else { toast.success(page.published ? "Unpublished" : "Published!"); refetch(); }
+  };
+
+  const copyLink = (slug: string) => {
+    navigator.clipboard.writeText(`${window.location.origin}/lp/${slug}`);
+    setCopied(true);
+    toast.success("Link copied!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Analytics data for selected page
+  const pageEvents = analyticsPage ? allEvents.filter((e: any) => e.landing_page_id === analyticsPage.id) : [];
+  const viewEvents = pageEvents.filter((e: any) => e.event_type === "page_view");
+  const submitEvents = pageEvents.filter((e: any) => e.event_type === "form_submit");
+
+  // Views per day (last 30 days)
+  const viewsByDay = Array.from({ length: 30 }, (_, i) => {
+    const date = format(subDays(new Date(), 29 - i), "yyyy-MM-dd");
+    const count = viewEvents.filter((e: any) => e.created_at?.startsWith(date)).length;
+    return { date: format(subDays(new Date(), 29 - i), "MMM d"), views: count };
+  });
+
+  // UTM breakdown
+  const utmSources = viewEvents.reduce((acc: any, e: any) => {
+    const src = e.utm_source || "Direct";
+    acc[src] = (acc[src] || 0) + 1;
+    return acc;
+  }, {});
+  const utmData = Object.entries(utmSources).map(([name, value]) => ({ name, value })).sort((a: any, b: any) => b.value - a.value);
+
+  const utmMediums = viewEvents.reduce((acc: any, e: any) => {
+    const med = e.utm_medium || "None";
+    acc[med] = (acc[med] || 0) + 1;
+    return acc;
+  }, {});
+  const mediumData = Object.entries(utmMediums).map(([name, value]) => ({ name, value })).sort((a: any, b: any) => b.value - a.value);
+
+  if (analyticsPage) {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setAnalyticsPage(null)}><ArrowLeft className="h-4 w-4" /></Button>
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <h1 className="text-xl font-bold text-foreground">{analyticsPage.title} — Analytics</h1>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4">
+            {[
+              { label: "Total Views", value: analyticsPage.views || viewEvents.length },
+              { label: "Submissions", value: analyticsPage.form_submissions || submitEvents.length },
+              { label: "CVR", value: viewEvents.length > 0 ? `${((submitEvents.length / viewEvents.length) * 100).toFixed(1)}%` : "—" },
+              { label: "UTM Sources", value: Object.keys(utmSources).length },
+            ].map(k => (
+              <Card key={k.label} className="bg-card halevai-border">
+                <CardContent className="p-4">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">{k.label}</span>
+                  <div className="font-data text-xl font-bold text-foreground">{k.value}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card className="bg-card halevai-border">
+            <CardContent className="p-4">
+              <h3 className="text-sm font-semibold text-foreground mb-4">Views Over Time (30 days)</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={viewsByDay}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} interval={4} />
+                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} />
+                  <Line type="monotone" dataKey="views" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card className="bg-card halevai-border">
+              <CardContent className="p-4">
+                <h3 className="text-sm font-semibold text-foreground mb-4">Traffic by Source</h3>
+                {utmData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={utmData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} />
+                      <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-muted-foreground text-sm text-center py-8">No traffic data yet</p>}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card halevai-border">
+              <CardContent className="p-4">
+                <h3 className="text-sm font-semibold text-foreground mb-4">Traffic by Medium</h3>
+                {mediumData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={mediumData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} />
+                      <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-muted-foreground text-sm text-center py-8">No medium data yet</p>}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -103,22 +230,33 @@ const LandingPages = () => {
             {all.map((p) => (
               <Card key={p.id} className="bg-card halevai-border hover:border-primary/30 transition-colors">
                 <CardContent className="p-4">
-                  <h3 className="font-semibold text-foreground text-sm mb-2">{p.title}</h3>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-foreground text-sm">{p.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={!!p.published} onCheckedChange={() => togglePublish(p)} />
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-1 mb-3">
                     <Badge variant="outline" className="border-primary/30 text-primary text-[10px]">{p.state || "—"}</Badge>
                     {p.county && <Badge variant="outline" className="text-[10px] border-border">{p.county}</Badge>}
                     <Badge variant="outline" className="text-[10px] border-accent/30 text-accent">{(p.language || "en").toUpperCase().slice(0, 2)}</Badge>
-                    <Badge className={`text-[10px] ${p.published ? "bg-green-500/20 text-green-400" : "bg-muted text-muted-foreground"}`}>{p.published ? "Published" : "Draft"}</Badge>
+                    <Badge className={`text-[10px] ${p.published ? "bg-green-500/20 text-green-400" : "bg-muted text-muted-foreground"}`}>{p.published ? "Live" : "Draft"}</Badge>
                   </div>
                   {p.hero_headline && <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{p.hero_headline}</p>}
                   <div className="grid grid-cols-3 gap-2 text-xs mb-3">
                     <div><span className="text-muted-foreground">Views</span><div className="font-data font-bold text-foreground">{(p.views || 0).toLocaleString()}</div></div>
-                    <div><span className="text-muted-foreground">Submissions</span><div className="font-data font-bold text-primary">{p.form_submissions || 0}</div></div>
-                    <div><span className="text-muted-foreground">CVR</span><div className="font-data text-foreground">{(p.conversion_rate || 0) > 0 ? `${p.conversion_rate}%` : "—"}</div></div>
+                    <div><span className="text-muted-foreground">Leads</span><div className="font-data font-bold text-primary">{p.form_submissions || 0}</div></div>
+                    <div><span className="text-muted-foreground">CVR</span><div className="font-data text-foreground">{(p.views || 0) > 0 ? `${(((p.form_submissions || 0) / (p.views || 1)) * 100).toFixed(1)}%` : "—"}</div></div>
                   </div>
                   <div className="flex gap-1">
                     <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => setPreviewPage(p)}><Eye className="h-3 w-3 mr-1" />Preview</Button>
-                    <Button size="sm" variant="outline" className="text-xs"><BarChart3 className="h-3 w-3" /></Button>
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => setAnalyticsPage(p)}><BarChart3 className="h-3 w-3" /></Button>
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => copyLink(p.slug)}>{copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}</Button>
+                    {p.published && (
+                      <Button size="sm" variant="outline" className="text-xs" asChild>
+                        <a href={`/lp/${p.slug}`} target="_blank" rel="noopener"><ExternalLink className="h-3 w-3" /></a>
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

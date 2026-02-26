@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Megaphone, Plus, TrendingUp, DollarSign, MousePointer, Users, Sparkles, Search, Globe, BarChart3, FileText, Zap, Star, AlertTriangle, ExternalLink } from "lucide-react";
+import { Megaphone, Plus, TrendingUp, DollarSign, MousePointer, Users, Sparkles, Search, Globe, BarChart3, FileText, Zap, Star, AlertTriangle, ExternalLink, Loader2, ChevronDown, ChevronUp, Mail, MessageSquare, Trash2 } from "lucide-react";
 import { useCampaigns, useReferralSources, useCampaignTemplates, useCampaignSequences, useSequenceEnrollments, useAgency } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +19,199 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ReferenceLine } from "recharts";
+
+// Sequences Tab Component with full step editor
+const SequencesTab = ({ sequences, agencyId }: { sequences: any[]; agencyId: string | null }) => {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [steps, setSteps] = useState<any[]>([]);
+  const [loadingSteps, setLoadingSteps] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newTrigger, setNewTrigger] = useState("manual");
+  const [generatingSteps, setGeneratingSteps] = useState(false);
+
+  const loadSteps = async (seqId: string) => {
+    setLoadingSteps(true);
+    const { data } = await supabase.from("sequence_steps" as any).select("*").eq("sequence_id", seqId).order("step_number");
+    setSteps((data || []) as any[]);
+    setLoadingSteps(false);
+  };
+
+  const toggleExpand = (id: string) => {
+    if (expandedId === id) { setExpandedId(null); setSteps([]); }
+    else { setExpandedId(id); loadSteps(id); }
+  };
+
+  const createSequence = async () => {
+    if (!agencyId || !newName.trim()) return;
+    setCreating(true);
+    const { error } = await supabase.from("campaign_sequences" as any).insert({
+      agency_id: agencyId, name: newName, trigger_type: newTrigger,
+    });
+    if (error) toast.error("Failed to create");
+    else { toast.success("Sequence created!"); setNewName(""); window.location.reload(); }
+    setCreating(false);
+  };
+
+  const addStep = async (seqId: string) => {
+    if (!agencyId) return;
+    const nextNum = steps.length + 1;
+    const { error } = await supabase.from("sequence_steps" as any).insert({
+      agency_id: agencyId, sequence_id: seqId, step_number: nextNum,
+      channel: "sms", delay_hours: nextNum === 1 ? 0 : 24,
+      subject: `Step ${nextNum}`, body: "", active: true,
+    });
+    if (error) toast.error("Failed");
+    else loadSteps(seqId);
+  };
+
+  const updateStep = async (stepId: string, updates: any) => {
+    await supabase.from("sequence_steps" as any).update(updates).eq("id", stepId);
+    if (expandedId) loadSteps(expandedId);
+  };
+
+  const deleteStep = async (stepId: string) => {
+    await supabase.from("sequence_steps" as any).delete().eq("id", stepId);
+    if (expandedId) loadSteps(expandedId);
+  };
+
+  const generateAISteps = async (seqId: string, seq: any) => {
+    if (!agencyId) return;
+    setGeneratingSteps(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("campaign-optimizer", {
+        body: { mode: "template", agencyId, context: `Generate a 5-step ${seq.trigger_type} outreach sequence for caregivers. Return steps with channel (sms or email), subject, body, and delay_hours.` },
+      });
+      if (error) throw error;
+      const aiSteps = data?.result?.steps || data?.result?.recommendations || [];
+      for (let i = 0; i < Math.min(aiSteps.length, 5); i++) {
+        const s = aiSteps[i];
+        await supabase.from("sequence_steps" as any).insert({
+          agency_id: agencyId, sequence_id: seqId, step_number: i + 1,
+          channel: s.channel || "sms", delay_hours: s.delay_hours || (i * 24),
+          subject: s.subject || s.title || `Step ${i + 1}`,
+          body: s.body || s.description || "", ai_generated: true, active: true,
+        });
+      }
+      toast.success("AI steps generated!");
+      loadSteps(seqId);
+    } catch (e: any) {
+      toast.error(e.message || "Generation failed");
+    }
+    setGeneratingSteps(false);
+  };
+
+  const toggleActive = async (seqId: string, active: boolean) => {
+    await supabase.from("campaign_sequences" as any).update({ active: !active }).eq("id", seqId);
+    window.location.reload();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-foreground">Campaign Sequences</h2>
+      </div>
+
+      {/* Create new sequence */}
+      <Card className="bg-secondary/30 halevai-border">
+        <CardContent className="p-4">
+          <div className="flex gap-3 items-end">
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs">Sequence Name</Label>
+              <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. New Lead Welcome" className="bg-secondary border-border" />
+            </div>
+            <div className="w-40 space-y-1">
+              <Label className="text-xs">Trigger</Label>
+              <Select value={newTrigger} onValueChange={setNewTrigger}>
+                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="new_lead">New Lead</SelectItem>
+                  <SelectItem value="form_submit">Form Submit</SelectItem>
+                  <SelectItem value="status_change">Status Change</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={createSequence} disabled={creating || !newName.trim()}>
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-1" />Create</>}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {sequences.map((seq: any) => (
+        <Card key={seq.id} className="bg-card halevai-border">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2 cursor-pointer" onClick={() => toggleExpand(seq.id)}>
+              <div>
+                <h3 className="font-semibold text-foreground">{seq.name}</h3>
+                <div className="flex gap-1 mt-1">
+                  <Badge variant="outline" className="text-[10px] border-border">{seq.trigger_type}</Badge>
+                  {seq.target_state && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">{seq.target_state}</Badge>}
+                  <Badge variant="outline" className="text-[10px] border-border">{seq.target_language}</Badge>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={!!seq.active} onCheckedChange={() => toggleActive(seq.id, seq.active)} />
+                {expandedId === seq.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            </div>
+
+            {expandedId === seq.id && (
+              <div className="mt-4 space-y-3 border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">{steps.length} steps</span>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => generateAISteps(seq.id, seq)} disabled={generatingSteps}>
+                      {generatingSteps ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}AI Generate Steps
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => addStep(seq.id)}>
+                      <Plus className="h-3 w-3 mr-1" />Add Step
+                    </Button>
+                  </div>
+                </div>
+
+                {loadingSteps ? <Skeleton className="h-20" /> : steps.map((step: any) => (
+                  <Card key={step.id} className="bg-secondary/20 border-border">
+                    <CardContent className="p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-primary/20 text-primary text-[10px]">Step {step.step_number}</Badge>
+                          {step.channel === "email" ? <Mail className="h-3 w-3 text-blue-400" /> : <MessageSquare className="h-3 w-3 text-green-400" />}
+                          <span className="text-xs text-muted-foreground">After {step.delay_hours}h</span>
+                          {step.ai_generated && <Badge variant="outline" className="text-[8px] border-accent/30 text-accent">AI</Badge>}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Switch checked={!!step.active} onCheckedChange={(v) => updateStep(step.id, { active: v })} />
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={() => deleteStep(step.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <Select value={step.channel} onValueChange={(v) => updateStep(step.id, { channel: v })}>
+                          <SelectTrigger className="bg-secondary border-border h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="sms">SMS</SelectItem><SelectItem value="email">Email</SelectItem></SelectContent>
+                        </Select>
+                        <Input type="number" value={step.delay_hours} onChange={e => updateStep(step.id, { delay_hours: Number(e.target.value) })} className="bg-secondary border-border h-8 text-xs" placeholder="Delay (hrs)" />
+                        <Input value={step.subject || ""} onChange={e => updateStep(step.id, { subject: e.target.value })} className="bg-secondary border-border h-8 text-xs" placeholder="Subject" />
+                      </div>
+                      <Textarea value={step.body || ""} onChange={e => updateStep(step.id, { body: e.target.value })} className="bg-secondary border-border text-xs min-h-[60px]" placeholder="Message body..." />
+                    </CardContent>
+                  </Card>
+                ))}
+                {steps.length === 0 && !loadingSteps && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No steps yet. Add manually or use AI to generate a complete sequence.</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+      {sequences.length === 0 && <p className="text-muted-foreground text-center py-8">No sequences yet. Create one above to automate outreach.</p>}
+    </div>
+  );
+};
 
 const statusColor = (s: string | null) => {
   if (s === "active") return "bg-green-500/20 text-green-400";
@@ -325,30 +521,7 @@ const Campaigns = () => {
             </TabsContent>
 
             <TabsContent value="sequences">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-foreground">Campaign Sequences</h2>
-                  <Button variant="outline"><Plus className="h-4 w-4 mr-1" /> New Sequence</Button>
-                </div>
-                {(sequences || []).map((seq: any) => (
-                  <Card key={seq.id} className="bg-card halevai-border">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <h3 className="font-semibold text-foreground">{seq.name}</h3>
-                          <div className="flex gap-1 mt-1">
-                            <Badge variant="outline" className="text-[10px] border-border">{seq.trigger_type}</Badge>
-                            {seq.target_state && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">{seq.target_state}</Badge>}
-                            <Badge variant="outline" className="text-[10px] border-border">{seq.target_language}</Badge>
-                          </div>
-                        </div>
-                        <Badge className={seq.active ? "bg-green-500/20 text-green-400" : "bg-muted text-muted-foreground"}>{seq.active ? "Active" : "Inactive"}</Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {(sequences || []).length === 0 && <p className="text-muted-foreground text-center py-8">No sequences yet</p>}
-              </div>
+              <SequencesTab sequences={sequences || []} agencyId={agencyId} />
             </TabsContent>
           </Tabs>
         )}

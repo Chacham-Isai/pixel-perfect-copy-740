@@ -9,13 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarDays, Plus, Facebook, Instagram, Linkedin, List, Grid3X3, Sparkles, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, Plus, Facebook, Instagram, Linkedin, List, Grid3X3, Sparkles, Loader2, ChevronLeft, ChevronRight, Trash2, Clock, CheckCircle2 } from "lucide-react";
 import { useContentPosts } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, isToday } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isToday, addDays } from "date-fns";
 
 const platformIcon = (p: string | null) => {
   switch (p) {
@@ -40,11 +40,11 @@ const ContentCalendar = () => {
   const [genCount, setGenCount] = useState("3");
   const [generating, setGenerating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState<string>("");
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  // Pad to start on Monday
   const startDay = monthStart.getDay();
   const paddingDays = (startDay + 6) % 7;
 
@@ -55,7 +55,6 @@ const ContentCalendar = () => {
         body: { agencyId, platforms: genPlatforms, topic: genTopic, state: genState, language: genLanguage, count: Number(genCount) },
       });
       if (error) throw error;
-      // Save generated posts
       const generatedPosts = data?.posts || [];
       for (const p of generatedPosts) {
         await supabase.from("content_posts").insert({
@@ -82,6 +81,41 @@ const ContentCalendar = () => {
 
   const togglePlatform = (p: string) => {
     setGenPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+  };
+
+  const selectAll = () => {
+    if (selectedIds.length === all.length) setSelectedIds([]);
+    else setSelectedIds(all.map(p => p.id));
+  };
+
+  const handleBulkAction = async (action: string) => {
+    if (selectedIds.length === 0) { toast.error("Select posts first"); return; }
+    
+    if (action === "delete") {
+      for (const id of selectedIds) {
+        await supabase.from("content_posts").delete().eq("id", id);
+      }
+      toast.success(`${selectedIds.length} posts deleted`);
+    } else if (action === "publish") {
+      for (const id of selectedIds) {
+        await supabase.from("content_posts").update({ status: "published" }).eq("id", id);
+      }
+      toast.success(`${selectedIds.length} posts published`);
+    } else if (action === "schedule") {
+      // Auto-schedule: spread across next 7 days
+      for (let i = 0; i < selectedIds.length; i++) {
+        const date = format(addDays(new Date(), Math.floor(i / 2) + 1), "yyyy-MM-dd");
+        await supabase.from("content_posts").update({ status: "scheduled", scheduled_date: date }).eq("id", selectedIds[i]);
+      }
+      toast.success(`${selectedIds.length} posts scheduled over next week`);
+    } else if (action === "draft") {
+      for (const id of selectedIds) {
+        await supabase.from("content_posts").update({ status: "draft" }).eq("id", id);
+      }
+      toast.success(`${selectedIds.length} posts set to draft`);
+    }
+    setSelectedIds([]);
+    refetch();
   };
 
   return (
@@ -143,6 +177,22 @@ const ContentCalendar = () => {
           </div>
         </div>
 
+        {/* Bulk Actions Bar */}
+        {selectedIds.length > 0 && (
+          <Card className="bg-primary/10 border-primary/30">
+            <CardContent className="p-3 flex items-center justify-between">
+              <span className="text-sm text-foreground font-medium">{selectedIds.length} post{selectedIds.length > 1 ? "s" : ""} selected</span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => handleBulkAction("schedule")}><Clock className="h-3 w-3 mr-1" />Auto-Schedule</Button>
+                <Button size="sm" variant="outline" onClick={() => handleBulkAction("publish")}><CheckCircle2 className="h-3 w-3 mr-1" />Publish</Button>
+                <Button size="sm" variant="outline" onClick={() => handleBulkAction("draft")}>Set Draft</Button>
+                <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleBulkAction("delete")}><Trash2 className="h-3 w-3 mr-1" />Delete</Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>Clear</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {isLoading ? <Skeleton className="h-64" /> : view === "calendar" ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -179,7 +229,7 @@ const ContentCalendar = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border">
-                    <TableHead className="w-8"></TableHead>
+                    <TableHead className="w-8"><Checkbox checked={selectedIds.length === all.length && all.length > 0} onCheckedChange={selectAll} /></TableHead>
                     <TableHead>Title</TableHead><TableHead>Platform</TableHead><TableHead>Status</TableHead>
                     <TableHead>Date</TableHead><TableHead>State</TableHead><TableHead>Language</TableHead>
                   </TableRow>
@@ -196,7 +246,7 @@ const ContentCalendar = () => {
                       <TableCell><Badge variant="outline" className="text-[10px]">{(p.language || "en").toUpperCase().slice(0, 2)}</Badge></TableCell>
                     </TableRow>
                   ))}
-                  {all.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No content yet</TableCell></TableRow>}
+                  {all.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No content yet. Generate posts to get started!</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent>
