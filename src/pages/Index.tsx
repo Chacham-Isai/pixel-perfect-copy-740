@@ -5,7 +5,7 @@ import {
   Brain, Users, MessageSquare, Phone, Shield, ClipboardList,
   ArrowRight, Sparkles
 } from "lucide-react";
-import logo from "@/assets/halevai-logo.png";
+import logo from "@/assets/logo-transparent.png";
 
 const features = [
   { icon: Brain, title: "AI Lead Scoring", desc: "Predict which caregivers will convert with machine-learning models trained on home care data." },
