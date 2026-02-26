@@ -1,15 +1,14 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
-
-type AgencyRole = "owner" | "admin" | "viewer" | null;
+import type { AgencyRole } from "@/lib/permissions";
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
   agencyId: string | null;
-  agencyRole: AgencyRole;
+  agencyRole: AgencyRole | null;
   isViewer: boolean;
   signOut: () => Promise<void>;
 }
@@ -31,17 +30,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [agencyId, setAgencyId] = useState<string | null>(null);
-  const [agencyRole, setAgencyRole] = useState<AgencyRole>(null);
+  const [agencyRole, setAgencyRole] = useState<AgencyRole | null>(null);
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, s) => {
         setSession(s);
