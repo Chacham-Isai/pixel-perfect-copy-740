@@ -47,12 +47,15 @@ const Caregivers = () => {
   return (
     <AppLayout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">Caregiver Pipeline</h1>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
-            <Button size="sm" className="bg-primary text-primary-foreground"><Plus className="h-4 w-4 mr-1" /> Add Caregiver</Button>
+        <div>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-foreground">Caregiver Pipeline</h1>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
+              <Button size="sm" className="bg-primary text-primary-foreground"><Plus className="h-4 w-4 mr-1" /> Add Caregiver</Button>
+            </div>
           </div>
+          <p className="text-sm text-muted-foreground mt-1">Track every caregiver from first contact to active enrollment. Click any card to see full details and take action.</p>
         </div>
 
         <div className="flex gap-3">

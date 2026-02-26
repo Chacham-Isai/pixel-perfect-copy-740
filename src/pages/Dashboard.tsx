@@ -10,12 +10,12 @@ import { useCaregivers, useCampaigns, useReviews, useActivityLog, useSourcedCand
 import { Skeleton } from "@/components/ui/skeleton";
 
 const quickActions = [
-  { label: "Add Caregiver", icon: UserPlus, href: "/caregivers" },
-  { label: "New Campaign", icon: Megaphone, href: "/campaign-builder" },
-  { label: "Source Candidates", icon: Search, href: "/talent-sourcing" },
-  { label: "Ask Halevai", icon: Bot, href: "/halevai" },
-  { label: "View Pipeline", icon: Eye, href: "/caregivers" },
-  { label: "Daily Briefing", icon: Newspaper, href: "/briefing" },
+  { label: "Add Caregiver", desc: "Add a new lead to your pipeline", icon: UserPlus, href: "/caregivers" },
+  { label: "New Campaign", desc: "Launch a recruitment or marketing campaign", icon: Megaphone, href: "/campaign-builder" },
+  { label: "Source Candidates", desc: "Find caregivers from job boards & social", icon: Search, href: "/talent-sourcing" },
+  { label: "Ask Halevai", desc: "Get AI strategy & data analysis", icon: Bot, href: "/halevai" },
+  { label: "View Pipeline", desc: "See all caregivers by stage", icon: Eye, href: "/caregivers" },
+  { label: "Daily Briefing", desc: "Your morning performance report", icon: Newspaper, href: "/briefing" },
 ];
 
 const funnelConfig = [
@@ -73,6 +73,9 @@ const Dashboard = () => {
                   {newThisWeek > 0 && <>, with <span className="text-primary">{newThisWeek} added this week</span></>}. 
                   Your campaigns are spending <span className="font-data text-primary">${totalSpend.toLocaleString()}</span> total. 
                   {unrespondedReviews > 0 && <><Link to="/reviews" className="text-primary hover:underline"> {unrespondedReviews} reviews</Link> need responses. </>}
+                </p>
+                <p className="text-xs text-muted-foreground/70 mt-2 italic">
+                  💡 Tip: Use the quick launch buttons below to take action, or ask <Link to="/halevai" className="text-primary hover:underline">Halevai AI</Link> for personalized strategy advice.
                 </p>
               </div>
             </div>
@@ -132,12 +135,13 @@ const Dashboard = () => {
         <Card className="bg-card halevai-border">
           <CardHeader className="pb-3"><CardTitle className="text-lg">Quick Launch</CardTitle></CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {quickActions.map((a) => (
                 <Link key={a.label} to={a.href}>
                   <Button variant="outline" className="w-full h-auto flex-col gap-2 py-4 border-border hover:border-primary/40 hover:bg-primary/5">
                     <a.icon className="h-5 w-5 text-primary" />
-                    <span className="text-xs">{a.label}</span>
+                    <span className="text-xs font-medium">{a.label}</span>
+                    <span className="text-[10px] text-muted-foreground leading-tight">{a.desc}</span>
                   </Button>
                 </Link>
               ))}

@@ -15,14 +15,17 @@ const Automations = () => {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Zap className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Automations</h1>
+        <div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Zap className="h-6 w-6 text-primary" />
+              <h1 className="text-2xl font-bold text-foreground">Automations</h1>
+            </div>
+            <Badge className="bg-primary/20 text-primary font-data">
+              {all.filter(a => a.active).length} / {all.length} Active
+            </Badge>
           </div>
-          <Badge className="bg-primary/20 text-primary font-data">
-            {all.filter(a => a.active).length} / {all.length} Active
-          </Badge>
+          <p className="text-sm text-muted-foreground mt-1">Toggle automations on/off to let Halevai AI handle repetitive tasks — lead scoring, follow-ups, alerts, and more.</p>
         </div>
 
         {isLoading ? <div className="space-y-3">{Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-20" />)}</div> : (
