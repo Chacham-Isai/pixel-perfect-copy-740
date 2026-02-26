@@ -27,10 +27,12 @@ The name "Halevai" (הלוואי) is Hebrew for "if only" / "hopefully" — refl
 | **Backend** | Lovable Cloud (Supabase under the hood) |
 | **Database** | PostgreSQL via Supabase |
 | **Auth** | Supabase Auth (email/password) |
-| **Edge Functions** | Deno (Supabase Edge Functions) |
+| **Edge Functions** | Deno (Supabase Edge Functions) — 11 deployed |
 | **AI Models** | Google Gemini 3 Flash Preview (text), Gemini 2.5 Flash Image (images) via Lovable AI Gateway |
+| **Web Scraping** | Firecrawl (connected via Lovable connector) |
 | **Drag & Drop** | @dnd-kit/core + @dnd-kit/sortable |
 | **Forms** | React Hook Form + Zod validation |
+| **Scheduling** | pg_cron + pg_net (automated daily jobs) |
 
 ### Design System
 
@@ -46,7 +48,7 @@ The name "Halevai" (הלוואי) is Hebrew for "if only" / "hopefully" — refl
 
 ---
 
-## 3. Database Schema (28 Tables)
+## 3. Database Schema (29 Tables)
 
 ### Core Agency Tables
 | Table | Purpose |
@@ -97,6 +99,7 @@ The name "Halevai" (הלוואי) is Hebrew for "if only" / "hopefully" — refl
 | `competitors` | Competitor tracking: pay rates, ratings, spend estimates |
 | `reviews` | Agency reviews from Google, Indeed, etc. with AI response drafting |
 | `review_requests` | Review solicitation tracking (sent → clicked → completed) |
+| `pay_rate_intel` | AI-analyzed competitive pay rates, Medicaid reimbursement ceilings, recommended rates by state/county |
 
 ### AI & Strategy
 | Table | Purpose |
@@ -104,7 +107,7 @@ The name "Halevai" (הלוואי) is Hebrew for "if only" / "hopefully" — refl
 | `halevai_conversations` | Chat conversation threads |
 | `halevai_messages` | Individual messages (user/assistant roles) |
 | `halevai_recommendations` | AI-generated action items with priority, status, impact estimates |
-| `growth_playbooks` | Pre-built marketing playbook templates (10 seeded) |
+| `growth_playbooks` | Pre-built marketing playbook templates (10+ seeded) |
 | `daily_briefings` | Daily performance summaries (jsonb content) |
 | `activity_log` | System-wide audit trail |
 | `automation_configs` | Toggle-able automation rules |
@@ -117,7 +120,10 @@ agency_id IN (
   WHERE user_id = auth.uid()
 )
 ```
-Exception: `landing_page_events` allows public INSERT (for anonymous page view tracking).
+Exceptions:
+- `landing_page_events` allows public INSERT (for anonymous page view tracking) with field validation
+- `agencies` INSERT scoped to `TO authenticated` role only (for onboarding)
+- `growth_playbooks` allows SELECT when `agency_id IS NULL` (shared system templates)
 
 ### Key Enums
 - `lead_status`: new → contacted → intake_started → enrollment_pending → authorized → active → inactive → rejected
@@ -127,7 +133,7 @@ Exception: `landing_page_events` allows public INSERT (for anonymous page view t
 
 ---
 
-## 4. Edge Functions (6 Deployed)
+## 4. Edge Functions (11 Deployed)
 
 All use `verify_jwt = false` in config.toml with manual auth validation inside the function.
 
@@ -174,9 +180,47 @@ All use `verify_jwt = false` in config.toml with manual auth validation inside t
 - **Current:** Returns manual posting instructions with pre-formatted content
 - **Future:** Direct API integration with ad platforms
 
+### `score-leads`
+- **Purpose:** AI-powered lead scoring for caregivers
+- **Logic:** Weighted scoring based on contact info, caregiving experience, Medicaid status, recency
+- **Output:** `lead_score` (0-100), `lead_tier` (HOT/WARM/COLD)
+
+### `analyze-pay-rates`
+- **Purpose:** AI + web scraping competitive pay rate analysis
+- **Integration:** Firecrawl for web scraping competitor job postings & Medicaid rates
+- **Model:** `google/gemini-2.5-flash` for analysis
+- **Output:** Recommended rate, market min/avg/max, Medicaid reimbursement ceiling, analysis summary
+- **Storage:** Results saved to `pay_rate_intel` table
+
+### `run-automations`
+- **Purpose:** Execute all active automation rules for an agency
+- **Automations:**
+  - `lead_scoring` — Re-score unscored caregivers
+  - `follow_up_reminders` — Flag stale contacts (3+ days), create notifications
+  - `performance_alerts` — Campaign spend threshold alerts
+  - `stale_enrollment_alerts` — Enrollment stuck >14 days alerts
+- **Multi-agency:** Supports `agencyId: "all"` for cron-triggered batch processing
+
+### `generate-briefing`
+- **Purpose:** Generate daily performance briefing for an agency
+- **Output:** Pipeline stats, campaign performance, action items, wins
+- **Multi-agency:** Supports `agencyId: "all"` for cron-triggered batch processing
+- **Deduplication:** Skips if briefing already exists for today
+
 ---
 
-## 5. Application Pages & Wireframes
+## 5. Scheduled Jobs (pg_cron)
+
+| Job | Schedule | Function | Description |
+|-----|----------|----------|-------------|
+| `run-automations-daily` | `0 7 * * *` (7:00 AM UTC) | `run-automations` | Processes all agencies' active automations |
+| `generate-briefing-daily` | `5 7 * * *` (7:05 AM UTC) | `generate-briefing` | Generates daily briefings for all agencies |
+
+Both jobs use `pg_net` HTTP POST to invoke edge functions with `agencyId: "all"`.
+
+---
+
+## 6. Application Pages & Wireframes
 
 ### Navigation Structure (Sidebar)
 
@@ -212,11 +256,12 @@ SYSTEM
 ### Page Details
 
 #### Dashboard (`/dashboard`)
-- KPI cards: Total Caregivers, Active Campaigns, Avg Review Rating, Sourced Candidates
-- Visual recruitment funnel (New → Contacted → Intake → Enrollment → Authorized → Active)
-- Quick action grid (6 actions)
-- Recent activity feed
-- Alert cards for stuck enrollments & underperforming campaigns
+- Greeting banner with pipeline & spend summary
+- Caregiver funnel visualization (New → Contacted → Intake → Enrollment → Authorized → Active)
+- KPI cards: Total Spend, New This Week, **Recommended Rate** (from pay rate intel), Enrollment Rate
+- Quick Launch grid (6 actions: Add Caregiver, New Campaign, Source Candidates, Ask Halevai, View Pipeline, Daily Briefing)
+- Recruitment Agents stats panel (Sourced, Outreach Sent, Responded, Promoted)
+- Recent Activity feed
 
 #### Halevai AI Chat (`/halevai`)
 - Multi-conversation sidebar
@@ -266,6 +311,11 @@ SYSTEM
   - Agency footer
   - Automatic `landing_page_events` tracking
 
+#### Competitors (`/competitors`)
+- **Pay Rate Intelligence panel** — AI-recommended rate, Medicaid ceiling, market range, competitor count, margin analysis
+- "Analyze Pay Rates" button → triggers `analyze-pay-rates` edge function (Firecrawl + AI)
+- Competitor tracker table: name, state, rating, reviews, pay range, est. spend, threat level
+
 #### Reviews (`/reviews`)
 - Review cards with star ratings
 - Solicitation tab: select caregivers → send review requests
@@ -298,29 +348,40 @@ SYSTEM
 - Outreach status tracking
 - "Promote to Pipeline" action (creates caregiver from candidate)
 
+#### Caregivers (`/caregivers`)
+- Kanban-style pipeline view by status (New, Contacted, Intake Started, Enrollment Pending, Authorized, Active)
+- Search + filters (state, county, tier, source)
+- Add Caregiver dialog
+- Export CSV
+- Detail sheet with: contact info, lead score/tier, patient info, enrollment timeline, **Suggested Offer Rate** (from pay rate intel), activity log
+- Drag cards between columns to update status
+
+#### Automations (`/automations`)
+- Toggle-able automation cards with descriptions
+- Active/inactive badge and last run timestamp
+- Actions this week counter
+- "Run Now" button to trigger all automations immediately
+
 #### Settings (`/settings`)
 - Agency Profile tab (name, email, phone, website, states)
 - Branding tab (colors, logo, tagline, social URLs)
 - Notifications tab
 
-#### Automations (`/automations`)
-- Toggle-able automation cards
-- Action count and last run timestamps
-
 ---
 
-## 6. Authentication Flow
+## 7. Authentication Flow
 
-1. **Sign Up:** Email + password → email verification required
+1. **Sign Up:** Email + password → email verification required (auto-confirm disabled)
 2. **Sign In:** Email + password
 3. **Password Reset:** Email-based reset flow (`/reset-password`)
 4. **Post-Auth:** Check for agency membership → if none, redirect to `/onboarding`
 5. **Onboarding:** 5-step wizard: Agency Name → States & Counties → Programs & Rates → Goals & Budget → AI Strategy Generation
 6. **Protected Routes:** All app routes wrapped in `<ProtectedRoute>` component
+7. **Anonymous signup:** Disabled
 
 ---
 
-## 7. Data Flow Architecture
+## 8. Data Flow Architecture
 
 ```
 User Action
@@ -338,15 +399,29 @@ Lovable AI Gateway (Gemini models)
 Response → DB persist → Query invalidation → UI update
 ```
 
+### Automated Flow (Cron)
+```
+pg_cron (7:00 AM UTC daily)
+    ↓
+pg_net HTTP POST → Edge Function
+    ↓
+Iterates all agencies
+    ↓
+Executes automations / generates briefings
+    ↓
+Creates notifications, updates scores, flags stale records
+```
+
 ### Key Patterns
 - **Agency scoping:** All queries filter by `agencyId` from `useAuth()` hook
 - **Generic query hook:** `useAgencyQuery<T>(key, table, options)` handles all standard table queries
 - **Mutations:** Direct Supabase SDK calls with manual `queryClient.invalidateQueries()`
 - **Edge function calls:** `supabase.functions.invoke("function-name", { body: {...} })`
+- **Multi-agency batch:** Edge functions accept `agencyId: "all"` for cron-triggered processing
 
 ---
 
-## 8. File Structure
+## 9. File Structure
 
 ```
 src/
@@ -355,37 +430,42 @@ src/
 │   ├── ui/                  # shadcn/ui components (50+ files)
 │   ├── AppLayout.tsx        # Main layout with sidebar
 │   ├── AppSidebar.tsx       # Navigation sidebar
+│   ├── ComposeMessageDialog.tsx  # Message composition
 │   ├── NavLink.tsx          # Active-aware nav link
 │   └── ProtectedRoute.tsx   # Auth guard
 ├── hooks/
 │   ├── useAuth.tsx          # Auth context (user, agencyId, signIn, signOut)
-│   ├── useAgencyData.ts     # All data hooks (20+ exports)
+│   ├── useAgencyData.ts     # All data hooks (25+ exports)
 │   └── use-mobile.tsx       # Mobile breakpoint detection
 ├── integrations/
 │   └── supabase/
 │       ├── client.ts        # Auto-generated Supabase client
 │       └── types.ts         # Auto-generated TypeScript types
-├── pages/                   # 20 page components
+├── pages/                   # 22 page components
 ├── lib/utils.ts             # cn() utility
 ├── index.css                # Design tokens & custom styles
 └── main.tsx                 # Entry point
 
 supabase/
-├── config.toml              # Edge function configuration
+├── config.toml              # Edge function configuration (11 functions)
 ├── functions/
+│   ├── analyze-pay-rates/   # AI + Firecrawl pay rate analysis
 │   ├── campaign-optimizer/  # Multi-mode marketing AI
-│   ├── generate-content/    # Social content generation
-│   ├── generate-landing-content/  # Landing page AI
-│   ├── generate-creative/   # Ad image + copy generation
-│   ├── post-to-ads/         # Platform posting
 │   ├── discover-sources/    # Referral source discovery
-│   └── halevai-chat/        # Conversational AI
+│   ├── generate-briefing/   # Daily briefing generation
+│   ├── generate-content/    # Social content generation
+│   ├── generate-creative/   # Ad image + copy generation
+│   ├── generate-landing-content/  # Landing page AI
+│   ├── halevai-chat/        # Conversational AI
+│   ├── post-to-ads/         # Platform posting
+│   ├── run-automations/     # Automation execution engine
+│   └── score-leads/         # Lead scoring
 └── migrations/              # Database migrations (read-only)
 ```
 
 ---
 
-## 9. Storage Buckets
+## 10. Storage Buckets
 
 | Bucket | Purpose | Access |
 |--------|---------|--------|
@@ -393,23 +473,57 @@ supabase/
 
 ---
 
-## 10. Environment Variables
+## 11. External Integrations
+
+| Integration | Purpose | Auth |
+|-------------|---------|------|
+| **Firecrawl** | Web scraping for competitor pay rates & job postings | API key via Lovable connector (`FIRECRAWL_API_KEY`) |
+| **Lovable AI Gateway** | AI model access (Gemini family) | `LOVABLE_API_KEY` (auto-provisioned) |
+
+---
+
+## 12. Environment Variables
 
 | Variable | Source |
 |----------|--------|
 | `VITE_SUPABASE_URL` | Auto-configured |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Auto-configured |
+| `VITE_SUPABASE_PROJECT_ID` | Auto-configured |
 | `SUPABASE_URL` | Available in edge functions |
 | `SUPABASE_ANON_KEY` | Available in edge functions |
 | `SUPABASE_SERVICE_ROLE_KEY` | Available in edge functions |
 | `LOVABLE_API_KEY` | Lovable AI Gateway key (edge functions) |
+| `FIRECRAWL_API_KEY` | Firecrawl web scraping (managed by connector) |
 
 ---
 
-## 11. What's Complete ✅
+## 13. Security Configuration
 
-- [x] All 28 database tables with RLS policies
-- [x] 6 edge functions deployed and functional
+### RLS Policies
+- All 29 tables have Row Level Security enabled
+- Standard pattern: agency membership check via `agency_members` join
+- `agencies` INSERT restricted to `TO authenticated` role only
+- `landing_page_events` INSERT open with NOT NULL field validation
+- `profiles` restricted to own user only (`user_id = auth.uid()`)
+
+### Auth Configuration
+- Email verification required (auto-confirm disabled)
+- Anonymous signups disabled
+- Password-based authentication only
+
+### Database Functions
+- `get_user_agency_id()` — Returns current user's agency ID (SECURITY DEFINER)
+- `is_agency_member(user_id, agency_id)` — Membership check
+- `has_agency_role(user_id, agency_id, role)` — Role-based check
+- `handle_new_user()` — Auto-creates profile on signup (trigger)
+- `update_updated_at_column()` — Timestamp trigger
+
+---
+
+## 14. What's Complete ✅
+
+- [x] All 29 database tables with RLS policies
+- [x] 11 edge functions deployed and functional
 - [x] Full authentication flow with email verification
 - [x] 5-step onboarding wizard with AI strategy generation
 - [x] Dashboard with funnel visualization and KPIs
@@ -429,22 +543,57 @@ supabase/
 - [x] Enrollment tracker with stage advancement
 - [x] Settings with branding configuration
 - [x] Competitor intelligence tracking
+- [x] **AI-powered competitive pay rate analysis** (Firecrawl + Gemini)
+- [x] **Pay rate intelligence on Dashboard, Competitors, and Caregiver detail**
+- [x] **Automated daily automations** (pg_cron at 7:00 AM UTC)
+- [x] **Automated daily briefing generation** (pg_cron at 7:05 AM UTC)
+- [x] **Lead scoring automation** with tier assignment (HOT/WARM/COLD)
+- [x] **Follow-up reminder automation** (3+ day stale contacts)
+- [x] **Performance alert automation** (spend threshold monitoring)
+- [x] **Stale enrollment alert automation** (14+ day stuck enrollments)
+- [x] **Security audit passed** — tightened RLS policies, disabled anon signups
 
-## 12. Potential Future Enhancements
+## 15. Potential Future Enhancements
 
 - [ ] Canvas compositing for logo overlays on ad images
 - [ ] Direct API integration with ad platforms (Facebook Ads, Google Ads)
 - [ ] SMS/email sending via Twilio or SendGrid for sequences
 - [ ] Real-time notifications via Supabase Realtime
 - [ ] Multi-language UI (Hebrew, Spanish, Creole)
-- [ ] Role-based permissions (viewer, editor, admin, owner)
+- [ ] Role-based permissions (viewer, editor, admin, owner) with column-level RLS
 - [ ] Billing & subscription management
 - [ ] White-label / agency branding on public pages
-- [ ] Mobile-responsive optimization
-- [ ] Automated daily briefing generation via cron
-- [ ] Phone screening integration (Bland AI or similar)
-- [ ] Candidate enrichment via third-party data APIs
+- [ ] Rate limiting on landing page event insertion
+- [ ] Leaked password protection (platform-level setting)
 
 ---
 
-*Generated for project handoff context. This document reflects the complete state of halevai.ai as of February 2026.*
+## 16. Key Data Hooks Reference (`useAgencyData.ts`)
+
+| Hook | Table | Returns |
+|------|-------|---------|
+| `useAgency()` | `agencies` | Single agency |
+| `useCaregivers()` | `caregivers` | All caregivers |
+| `useCampaigns()` | `campaigns` | All campaigns |
+| `useCompetitors()` | `competitors` | All competitors |
+| `useReviews()` | `reviews` | All reviews |
+| `useContentPosts()` | `content_posts` | All content posts |
+| `useLandingPages()` | `landing_pages` | All landing pages |
+| `useSourcingCampaigns()` | `sourcing_campaigns` | All sourcing campaigns |
+| `useSourcedCandidates()` | `sourced_candidates` | All sourced candidates |
+| `useAutomations()` | `automation_configs` | All automation configs |
+| `useRecommendations()` | `halevai_recommendations` | All recommendations |
+| `usePlaybooks()` | `growth_playbooks` | All playbooks |
+| `useActivityLog()` | `activity_log` | Recent 20 entries |
+| `useAdCreatives()` | `ad_creatives` | All ad creatives |
+| `useBusinessConfig()` | `business_config` | Single config |
+| `useReferralSources()` | `referral_sources` | All referral sources |
+| `useCampaignTemplates()` | `saved_campaign_templates` | All templates |
+| `useCampaignSequences()` | `campaign_sequences` | All sequences |
+| `useSequenceSteps(id)` | `sequence_steps` | Steps for sequence |
+| `useSequenceEnrollments()` | `sequence_enrollments` | All enrollments |
+| `useCampaignPackages()` | `campaign_packages` | All packages |
+| `useLandingPageEvents()` | `landing_page_events` | All events |
+| `useReviewRequests()` | `review_requests` | All review requests |
+| `usePayRateIntel()` | `pay_rate_intel` | Latest analysis |
+| `useToggleAutomation()` | `automation_configs` | Mutation |
