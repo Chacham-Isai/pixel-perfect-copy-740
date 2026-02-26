@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
+import { useDraggable } from "@dnd-kit/core";
 
 type LeadStatus = "new" | "contacted" | "intake_started" | "enrollment_pending" | "authorized" | "active";
 
@@ -38,6 +50,71 @@ const tierColor = (tier: string | null) => {
 
 const US_STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"];
 
+const daysInStage = (c: Caregiver) => {
+  const ref = c.enrollment_started_at || c.last_contacted_at || c.created_at;
+  if (!ref) return 0;
+  return Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
+};
+
+// Droppable column wrapper
+function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-w-[260px] flex-1 rounded-lg transition-colors ${isOver ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Draggable card wrapper
+function DraggableCard({ caregiver, onClick }: { caregiver: Caregiver; onClick: () => void }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: caregiver.id,
+    data: { caregiver },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={`touch-none ${isDragging ? "opacity-30" : ""}`}
+    >
+      <CaregiverCard caregiver={caregiver} onClick={onClick} />
+    </div>
+  );
+}
+
+// Extracted card component for reuse in overlay
+function CaregiverCard({ caregiver: c, onClick }: { caregiver: Caregiver; onClick?: () => void }) {
+  return (
+    <Card
+      className="bg-card halevai-border hover:border-primary/30 cursor-grab active:cursor-grabbing transition-colors"
+      onClick={onClick}
+    >
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-start justify-between">
+          <span className="font-medium text-sm text-foreground">{c.full_name}</span>
+          <Badge className={`text-[10px] px-1.5 py-0 ${tierColor(c.lead_tier)}`}>{c.lead_tier || "—"}</Badge>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <MapPin className="h-3 w-3" /> {c.county || "—"}, {c.state || "—"}
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-data text-primary font-bold">{c.lead_score ?? "—"}/100</span>
+          {c.patient_name && <span className="text-muted-foreground truncate ml-2">Patient: {c.patient_name}</span>}
+        </div>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Clock className="h-3 w-3" /> {daysInStage(c)}d in stage
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 const Caregivers = () => {
   const { data: caregivers, isLoading } = useCaregivers();
   const { agencyId } = useAuth();
@@ -47,17 +124,50 @@ const Caregivers = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ full_name: "", phone: "", email: "", state: "", county: "", city: "", language_primary: "english", source: "direct", notes: "" });
+  const [activeCaregiver, setActiveCaregiver] = useState<Caregiver | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   const filtered = (caregivers || []).filter(c =>
     c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.county || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const daysInStage = (c: Caregiver) => {
-    const ref = c.enrollment_started_at || c.last_contacted_at || c.created_at;
-    if (!ref) return 0;
-    return Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
-  };
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const cg = (event.active.data.current as any)?.caregiver as Caregiver;
+    setActiveCaregiver(cg || null);
+  }, []);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    setActiveCaregiver(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const caregiver = (active.data.current as any)?.caregiver as Caregiver;
+    const newStatus = over.id as LeadStatus;
+
+    if (!caregiver || caregiver.status === newStatus) return;
+
+    // Optimistic update
+    qc.setQueryData(["caregivers", agencyId], (old: Caregiver[] | undefined) =>
+      old?.map(c => c.id === caregiver.id ? { ...c, status: newStatus } : c)
+    );
+
+    try {
+      const { error } = await supabase
+        .from("caregivers")
+        .update({ status: newStatus } as any)
+        .eq("id", caregiver.id);
+      if (error) throw error;
+      toast.success(`${caregiver.full_name} moved to ${columns.find(col => col.key === newStatus)?.label}`);
+      qc.invalidateQueries({ queryKey: ["caregivers"] });
+    } catch (e: any) {
+      toast.error("Failed to update status");
+      qc.invalidateQueries({ queryKey: ["caregivers"] });
+    }
+  }, [agencyId, qc]);
 
   const handleAddCaregiver = async () => {
     if (!form.full_name.trim() || !agencyId) return;
@@ -195,7 +305,7 @@ const Caregivers = () => {
               </Dialog>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Track every caregiver from first contact to active enrollment. Click any card to see full details and take action.</p>
+          <p className="text-sm text-muted-foreground mt-1">Track every caregiver from first contact to active enrollment. Drag cards between columns to update status.</p>
         </div>
 
         <div className="flex gap-3">
@@ -209,42 +319,43 @@ const Caregivers = () => {
         {isLoading ? (
           <div className="flex gap-3">{Array(6).fill(0).map((_, i) => <Skeleton key={i} className="min-w-[260px] flex-1 h-48" />)}</div>
         ) : (
-          <div className="flex gap-3 overflow-x-auto pb-4">
-            {columns.map((col) => {
-              const cards = filtered.filter(c => c.status === col.key);
-              return (
-                <div key={col.key} className="min-w-[260px] flex-1">
-                  <div className="flex items-center gap-2 mb-3 px-1">
-                    <div className={`h-3 w-3 rounded-full ${col.color}`} />
-                    <span className="text-sm font-medium text-foreground">{col.label}</span>
-                    <Badge variant="secondary" className="ml-auto text-xs font-data">{cards.length}</Badge>
-                  </div>
-                  <div className="space-y-2">
-                    {cards.map((c) => (
-                      <Card key={c.id} className="bg-card halevai-border hover:border-primary/30 cursor-pointer transition-colors" onClick={() => setSelectedCaregiver(c)}>
-                        <CardContent className="p-3 space-y-2">
-                          <div className="flex items-start justify-between">
-                            <span className="font-medium text-sm text-foreground">{c.full_name}</span>
-                            <Badge className={`text-[10px] px-1.5 py-0 ${tierColor(c.lead_tier)}`}>{c.lead_tier || "—"}</Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3" /> {c.county || "—"}, {c.state || "—"}
-                          </div>
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-data text-primary font-bold">{c.lead_score ?? "—"}/100</span>
-                            {c.patient_name && <span className="text-muted-foreground truncate ml-2">Patient: {c.patient_name}</span>}
-                          </div>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" /> {daysInStage(c)}d in stage
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-3 overflow-x-auto pb-4">
+              {columns.map((col) => {
+                const cards = filtered.filter(c => c.status === col.key);
+                return (
+                  <DroppableColumn key={col.key} id={col.key}>
+                    <div className="flex items-center gap-2 mb-3 px-1">
+                      <div className={`h-3 w-3 rounded-full ${col.color}`} />
+                      <span className="text-sm font-medium text-foreground">{col.label}</span>
+                      <Badge variant="secondary" className="ml-auto text-xs font-data">{cards.length}</Badge>
+                    </div>
+                    <div className="space-y-2 min-h-[100px]">
+                      {cards.map((c) => (
+                        <DraggableCard
+                          key={c.id}
+                          caregiver={c}
+                          onClick={() => setSelectedCaregiver(c)}
+                        />
+                      ))}
+                    </div>
+                  </DroppableColumn>
+                );
+              })}
+            </div>
+            <DragOverlay>
+              {activeCaregiver ? (
+                <div className="w-[260px] opacity-90 rotate-2 scale-105">
+                  <CaregiverCard caregiver={activeCaregiver} />
                 </div>
-              );
-            })}
-          </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
 
