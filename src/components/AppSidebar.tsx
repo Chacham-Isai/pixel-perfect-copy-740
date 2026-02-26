@@ -4,7 +4,9 @@ import {
   Search, Shield, Star,
   Zap, Settings, LogOut
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { NavLink } from "@/components/NavLink";
+import { Link } from "react-router-dom";
 import logo from "@/assets/logo-transparent.png";
 
 import {
@@ -65,12 +67,13 @@ const navSections = [
 ];
 
 export function AppSidebar() {
+  const { signOut } = useAuth();
   return (
     <Sidebar className="border-r border-border">
-      <div className="p-4 flex items-center gap-3">
-        <img src={logo} alt="Halevai.ai" className="h-8 w-auto" />
-        <span className="text-lg font-semibold halevai-text">halevai.ai</span>
-      </div>
+      <Link to="/dashboard" className="p-5 flex items-center gap-3 hover:opacity-80 transition-opacity">
+        <img src={logo} alt="Halevai.ai" className="h-12 w-auto" />
+        <span className="text-xl font-bold halevai-text">halevai.ai</span>
+      </Link>
 
       <SidebarContent>
         {navSections.map((section) => (
@@ -101,7 +104,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-border">
-        <button className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors w-full px-2 py-2 rounded-md hover:bg-secondary/50">
+        <button onClick={signOut} className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors w-full px-2 py-2 rounded-md hover:bg-secondary/50">
           <LogOut className="h-4 w-4" />
           <span>Sign Out</span>
         </button>
