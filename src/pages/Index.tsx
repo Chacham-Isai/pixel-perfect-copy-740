@@ -6,6 +6,7 @@ import {
   ArrowRight, Sparkles
 } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
+import abstractBrand from "@/assets/abstract-brand.png";
 
 const features = [
   { icon: Brain, title: "AI Lead Scoring", desc: "Predict which caregivers will convert with machine-learning models trained on home care data." },
@@ -20,9 +21,10 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
-      <nav className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-background/80">
-        <div className="container mx-auto flex items-center justify-between h-16 px-4">
-          <img src={logo} alt="Halevai.ai" className="h-10" />
+      <nav className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-background/80 relative overflow-hidden">
+        <img src={abstractBrand} alt="" className="absolute right-0 top-1/2 -translate-y-1/2 h-32 opacity-[0.06] pointer-events-none select-none" />
+        <div className="container mx-auto flex items-center justify-between h-20 px-4 relative z-10">
+          <img src={logo} alt="Halevai.ai" className="h-14" />
           <div className="flex items-center gap-4">
             <Link to="/auth">
               <Button variant="ghost" className="text-muted-foreground hover:text-foreground">Sign In</Button>
