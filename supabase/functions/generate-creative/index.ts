@@ -39,7 +39,7 @@ serve(async (req) => {
     const copyBody = {
       model: "google/gemini-3-flash-preview",
       messages: [
-        { role: "system", content: `You are an ad copywriter for ${config?.business_name || "a home care agency"}. Create compelling ad copy. Pay rate: $21/hr.` },
+        { role: "system", content: `You are an ad copywriter for Care at Home. Tagline: "Care starts at home™". Create compelling ad copy that reflects warmth, trust, and professionalism. Use the Care at Home brand name prominently. Pay rate: $21/hr. Brand colors: navy blue and sky blue.` },
         { role: "user", content: `Write ad copy for: "${prompt}". Platform: ${platform || "Facebook"}. Return headline and body copy.` },
       ],
       tools: [{
@@ -87,7 +87,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-image",
           messages: [
-            { role: "user", content: `Generate a professional ad image for a home care agency recruitment ad. ${copy.image_prompt || prompt}. Clean, professional, warm colors. Do NOT include any text in the image.` },
+            { role: "user", content: `Generate a professional ad image for Care at Home, a home care agency. ${copy.image_prompt || prompt}. Use navy blue and sky blue color palette. Clean, professional, warm. Do NOT include any text or logos in the image.` },
           ],
           modalities: ["image", "text"],
         }),

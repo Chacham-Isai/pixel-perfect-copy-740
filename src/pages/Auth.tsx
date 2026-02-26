@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/useAuth";
-import logo from "@/assets/halevai-logo.png";
+import logo from "@/assets/care-at-home-logo.png";
 
 const Auth = () => {
   const { session, loading } = useAuth();
@@ -128,7 +128,7 @@ const Auth = () => {
           <Link to="/">
             <img src={logo} alt="Halevai.ai" className="h-14 mx-auto mb-4" />
           </Link>
-          <p className="text-muted-foreground">AI-Powered Home Care Growth Engine</p>
+          <p className="text-muted-foreground">Care starts at home™</p>
         </div>
 
         <Card className="bg-card halevai-border">
