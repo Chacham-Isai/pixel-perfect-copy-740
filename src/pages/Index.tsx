@@ -19,12 +19,17 @@ const features = [
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Watermark overlay */}
+      <div
+        className="fixed inset-0 pointer-events-none select-none z-0"
+        style={{ backgroundImage: `url(${logo})`, backgroundRepeat: 'repeat', backgroundSize: '120px', opacity: 0.035 }}
+      />
       {/* Nav */}
       <nav className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-background/80 relative overflow-hidden">
         <img src={abstractBrand} alt="" className="absolute right-0 top-1/2 -translate-y-1/2 h-32 opacity-[0.06] pointer-events-none select-none" />
         <div className="container mx-auto flex items-center justify-between h-20 px-4 relative z-10">
-          <img src={logo} alt="Halevai.ai" className="h-14" />
+          <img src={logo} alt="Halevai.ai" className="h-20" />
           <div className="flex items-center gap-4">
             <Link to="/auth">
               <Button variant="ghost" className="text-muted-foreground hover:text-foreground">Sign In</Button>
