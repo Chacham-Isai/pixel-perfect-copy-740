@@ -1,12 +1,14 @@
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Users, UserPlus, Megaphone, Bot, Search, Newspaper, Eye, Calendar,
-  ArrowRight, TrendingUp, AlertTriangle, CheckCircle, Clock, DollarSign
+  ArrowRight, TrendingUp, AlertTriangle, CheckCircle, Clock, DollarSign,
+  MessageSquare, Mail, Phone, Plug, Check, X
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCaregivers, useCampaigns, useReviews, useActivityLog, useSourcedCandidates, usePayRateIntel } from "@/hooks/useAgencyData";
+import { useCaregivers, useCampaigns, useReviews, useActivityLog, useSourcedCandidates, usePayRateIntel, useMessageLog, useApiKeys, usePhoneScreens } from "@/hooks/useAgencyData";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const quickActions = [
@@ -27,6 +29,14 @@ const funnelConfig = [
   { label: "Active", status: "active", color: "bg-green-500" },
 ];
 
+const integrations = [
+  { key: "twilio_account_sid", label: "Twilio", icon: Phone },
+  { key: "sendgrid_api_key", label: "SendGrid", icon: Mail },
+  { key: "clay_api_key", label: "Clay", icon: Search },
+  { key: "ghl_api_key", label: "GHL", icon: Users },
+  { key: "bland_ai_api_key", label: "Bland AI", icon: Bot },
+];
+
 const Dashboard = () => {
   const { data: caregivers, isLoading: loadingCaregivers } = useCaregivers();
   const { data: campaigns } = useCampaigns();
@@ -34,17 +44,34 @@ const Dashboard = () => {
   const { data: activity } = useActivityLog();
   const { data: sourced } = useSourcedCandidates();
   const { data: rateIntel } = usePayRateIntel();
+  const { data: messages } = useMessageLog(100);
+  const { data: apiKeys } = useApiKeys();
+  const { data: phoneScreens } = usePhoneScreens();
 
   const activeCampaigns = campaigns?.filter(c => c.status === "active") || [];
   const totalSpend = activeCampaigns.reduce((s, c) => s + (c.spend || 0), 0);
-  const newThisWeek = caregivers?.filter(c => {
-    const d = new Date(c.created_at || "");
-    return Date.now() - d.getTime() < 7 * 86400000;
-  }).length || 0;
+  const now = Date.now();
+  const weekAgo = now - 7 * 86400000;
+  const newThisWeek = caregivers?.filter(c => new Date(c.created_at || "").getTime() > weekAgo).length || 0;
   const unrespondedReviews = reviews?.filter(r => !r.responded).length || 0;
   const activeCount = caregivers?.filter(c => c.status === "active").length || 0;
   const totalCount = caregivers?.length || 1;
   const enrollmentRate = totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0;
+
+  // Messaging stats
+  const recentMessages = messages?.filter(m => new Date(m.created_at || "").getTime() > weekAgo) || [];
+  const smsSent = recentMessages.filter(m => m.channel === "sms" && m.status !== "failed").length;
+  const emailSent = recentMessages.filter(m => m.channel === "email" && m.status !== "failed").length;
+  const failedCount = recentMessages.filter(m => m.status === "failed").length;
+
+  // Recruitment agent stats (this week)
+  const sourcedThisWeek = sourced?.filter(s => new Date(s.created_at || "").getTime() > weekAgo).length || 0;
+  const outreachSent = sourced?.filter(s => (s.outreach_status === "sent" || s.outreach_status === "responded") && new Date(s.updated_at || "").getTime() > weekAgo).length || 0;
+  const screensDone = phoneScreens?.filter(s => s.status === "completed" && new Date(s.created_at || "").getTime() > weekAgo).length || 0;
+  const autoPromoted = sourced?.filter(s => s.promoted_to_caregiver_id && new Date(s.updated_at || "").getTime() > weekAgo).length || 0;
+
+  // Integration status
+  const connectedKeys = new Set(apiKeys?.filter(k => k.connected).map(k => k.key_name) || []);
 
   const funnelStages = funnelConfig.map(f => ({
     ...f,
@@ -116,7 +143,7 @@ const Dashboard = () => {
           {[
             { label: "Total Spend", value: `$${totalSpend.toLocaleString()}`, sub: "Active campaigns", icon: TrendingUp },
             { label: "New This Week", value: String(newThisWeek), sub: "Caregivers", icon: UserPlus },
-            { label: "Recommended Rate", value: rateIntel ? `$${Number(rateIntel.recommended_rate).toFixed(0)}/hr` : "—", sub: rateIntel ? `Medicaid: $${Number(rateIntel.medicaid_reimbursement_rate).toFixed(0)}/hr` : "Run analysis", icon: DollarSign, href: "/competitors" },
+            { label: "Recommended Rate", value: rateIntel ? `$${Number(rateIntel.recommended_rate).toFixed(0)}/hr` : "—", sub: rateIntel ? `Medicaid: $${Number(rateIntel.medicaid_reimbursement_rate).toFixed(0)}/hr` : "Run analysis", icon: DollarSign },
             { label: "Enrollment Rate", value: `${enrollmentRate}%`, sub: "→ Active", icon: CheckCircle },
           ].map((kpi) => (
             <Card key={kpi.label} className="bg-card halevai-border">
@@ -130,6 +157,64 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* Messaging Stats + Integration Status */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <Card className="bg-card halevai-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                Messaging This Week
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                  <div className="font-data text-xl font-bold text-foreground">{smsSent + emailSent}</div>
+                  <div className="text-xs text-muted-foreground">Total Sent</div>
+                </div>
+                <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                  <div className="font-data text-xl font-bold text-foreground">{smsSent}</div>
+                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Phone className="h-3 w-3" /> SMS</div>
+                </div>
+                <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                  <div className="font-data text-xl font-bold text-foreground">{emailSent}</div>
+                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Mail className="h-3 w-3" /> Email</div>
+                </div>
+              </div>
+              {failedCount > 0 && (
+                <p className="text-xs text-destructive mt-2">{failedCount} failed message{failedCount > 1 ? "s" : ""}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card halevai-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Plug className="h-5 w-5 text-primary" />
+                Integrations
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-3">
+                {integrations.map((int) => {
+                  const connected = connectedKeys.has(int.key);
+                  return (
+                    <Link key={int.key} to="/settings" className="flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2 hover:bg-secondary transition-colors">
+                      <int.icon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs text-foreground">{int.label}</span>
+                      {connected ? (
+                        <Check className="h-3 w-3 text-green-400" />
+                      ) : (
+                        <X className="h-3 w-3 text-muted-foreground/40" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Quick Launch */}
@@ -156,16 +241,16 @@ const Dashboard = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Search className="h-5 w-5 text-primary" />
-                Recruitment Agents
+                Recruitment Agents <Badge className="bg-primary/20 text-primary text-[10px] ml-1">This Week</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Sourced", value: String(sourced?.length || 0) },
-                  { label: "Outreach Sent", value: String(sourced?.filter(s => s.outreach_status === "sent" || s.outreach_status === "responded").length || 0) },
-                  { label: "Responded", value: String(sourced?.filter(s => s.outreach_status === "responded").length || 0) },
-                  { label: "Promoted", value: String(sourced?.filter(s => s.promoted_to_caregiver_id).length || 0) },
+                  { label: "Sourced", value: String(sourcedThisWeek) },
+                  { label: "Outreach Sent", value: String(outreachSent) },
+                  { label: "Screens Done", value: String(screensDone) },
+                  { label: "Auto-Promoted", value: String(autoPromoted) },
                 ].map((s) => (
                   <div key={s.label} className="bg-secondary/50 rounded-lg p-3 text-center">
                     <div className="font-data text-xl font-bold text-foreground">{s.value}</div>

@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { NotificationBell } from "@/components/NotificationBell";
 import logo from "@/assets/logo-transparent.png";
 
 interface AppLayoutProps {
@@ -16,8 +17,9 @@ export function AppLayout({ children }: AppLayoutProps) {
         />
         <AppSidebar />
         <main className="flex-1 flex flex-col relative z-10">
-          <header className="h-14 flex items-center border-b border-border px-4">
+          <header className="h-14 flex items-center justify-between border-b border-border px-4">
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+            <NotificationBell />
           </header>
           <div className="flex-1 p-6">
             {children}
