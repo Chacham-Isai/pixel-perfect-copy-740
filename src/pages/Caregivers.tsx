@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { ComposeMessageDialog } from "@/components/ComposeMessageDialog";
 import {
   DndContext,
   DragOverlay,
@@ -125,6 +126,7 @@ const Caregivers = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ full_name: "", phone: "", email: "", state: "", county: "", city: "", language_primary: "english", source: "direct", notes: "" });
   const [activeCaregiver, setActiveCaregiver] = useState<Caregiver | null>(null);
+  const [composeChannel, setComposeChannel] = useState<"sms" | "email" | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -402,8 +404,8 @@ const Caregivers = () => {
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <Button size="sm" className="bg-primary text-primary-foreground flex-1">Send SMS</Button>
-                  <Button size="sm" variant="outline" className="flex-1">Send Email</Button>
+                  <Button size="sm" className="bg-primary text-primary-foreground flex-1" onClick={() => setComposeChannel("sms")} disabled={!selectedCaregiver.phone}>Send SMS</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setComposeChannel("email")} disabled={!selectedCaregiver.email}>Send Email</Button>
                   <Button size="sm" variant="outline" className="flex-1">Schedule Screen</Button>
                 </div>
               </div>
@@ -411,6 +413,18 @@ const Caregivers = () => {
           )}
         </SheetContent>
       </Sheet>
+
+      {selectedCaregiver && composeChannel && agencyId && (
+        <ComposeMessageDialog
+          open={!!composeChannel}
+          onOpenChange={(open) => { if (!open) setComposeChannel(null); }}
+          channel={composeChannel}
+          caregiverId={selectedCaregiver.id}
+          caregiverName={selectedCaregiver.full_name}
+          agencyId={agencyId}
+          defaultTo={composeChannel === "sms" ? (selectedCaregiver.phone || "") : (selectedCaregiver.email || "")}
+        />
+      )}
     </AppLayout>
   );
 };
