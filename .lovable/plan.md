@@ -1,142 +1,112 @@
 
 
-## Comprehensive Upgrade Plan — Halevai.ai
+# Halevai.ai Phase 2 Mega Upgrade — Implementation Plan
 
-This is a massive scope. I recommend implementing in **3 rounds** (each round = one conversation). Attempting everything at once risks exceeding output limits and producing incomplete code. Here's the full plan broken into implementable rounds.
-
----
-
-### Round 1: Messaging Infrastructure + API Keys (Phases 1 & 5 partial)
-
-**Database Migration — 3 new tables:**
-
-1. **`api_keys`** — stores per-agency Twilio/SendGrid/Clay/GHL/Bland credentials
-   - Columns: id, agency_id, key_name, key_value, connected, last_tested_at, created_at, updated_at
-   - UNIQUE(agency_id, key_name)
-   - RLS: agency membership for SELECT; owner/admin only for INSERT/UPDATE/DELETE (these are sensitive credentials)
-
-2. **`message_log`** — unified log of all SMS/email/in-app messages
-   - Columns: id, agency_id, channel, to_contact, subject, body, status, external_id, template, related_type, related_id, error_message, created_at
-   - RLS: agency membership SELECT; owner/admin INSERT
-
-3. **`agent_activity_log`** — recruitment agent audit trail
-   - Columns: id, agency_id, agent_type, action, entity_type, entity_id, details, metadata, success, error_message, created_at
-   - RLS: agency membership check
-   - Enable Realtime
-
-**New Edge Function: `send-message`**
-- Accepts channel (sms/email/in_app), to, subject, body, template, related info
-- Looks up agency's Twilio/SendGrid keys from api_keys
-- SMS → Twilio REST API; Email → SendGrid API with branded HTML from business_config; In-App → notifications table
-- Graceful degradation: if no keys, logs as 'pending' with `mock: true`
-- All sends logged to message_log
-
-**Update: `run-automations`**
-- `follow_up_reminders` → calls send-message instead of just creating notifications
-- `lead_scoring` (HOT leads) → sends welcome SMS via send-message
-- `stale_enrollment_alerts` → sends reminder SMS/email via send-message
-
-**Settings Page: New "Integrations" tab**
-- Twilio: Account SID, Auth Token, Phone Number inputs
-- SendGrid: API Key input
-- Clay, GoHighLevel, Bland AI: placeholder sections
-- Password-masked inputs with show/hide toggle
-- Connection status indicator (green/red dot)
-- "Test Connection" button per service
-- "Save" button → upserts to api_keys
-
-**New hooks in useAgencyData.ts:**
-- `useApiKeys()`, `useMessageLog()`, `useSaveApiKey()`, `useTestConnection()`
-
-**Roles:** `operations_manager` and `intake_coordinator` already partially addressed — will add to enum and update RLS for api_keys (owner/admin only)
+This is a very large scope covering 5 major sections. Following the prompt's recommended implementation order, here's the plan broken into deployable rounds.
 
 ---
 
-### Round 2: Recruitment Agent APIs + Phone Screening (Phases 2 & 3)
+## Round 1: UX Polish & Foundation (Section 5)
 
-**New Edge Function: `source-candidates`**
-- Search mode: calls Clay API with sourcing campaign criteria, maps results to sourced_candidates, runs match scoring
-- Enrich mode: enriches pending candidates via Clay
-- Mock mode if no Clay key (generates 5 sample candidates)
-- Logs to agent_activity_log
+### Database Changes
+- Add columns to `campaigns`: `external_id`, `external_url`, `posted_at`, `platform_status`, `last_synced_at`
+- Add columns to `business_config`: `hide_halevai_branding`, `custom_domain`, `email_from_name`, `email_reply_to`
 
-**New Edge Function: `trigger-outreach`**
-- Creates/updates contacts in GoHighLevel
-- Adds to GHL workflow based on sequence_type (caregiver_cold or poaching)
-- Pre-built 5-step sequences for each type stored as constants
-- Updates outreach_status, logs to agent_activity_log
-- Mock mode if no GHL key
+### New Files
+- `src/lib/permissions.ts` — Role permission matrix with `hasPermission(role, action)` function
+- `src/lib/formatters.ts` — Shared utilities: `normalizePhone()`, `formatPhone()`, `formatCurrency()`, `formatTimeAgo()`
+- `src/hooks/usePageTitle.ts` — Sets `document.title` per page
 
-**New Edge Function: `ai-phone-screen`**
-- Calls Bland AI to initiate screening call with 7-question script
-- Creates phone_screens record
-- Polls for completion, saves transcript
-- Uses Lovable AI (Gemini) to analyze transcript → ai_summary, ai_score, ai_recommendation, screening_answers
-- Auto-promotes candidates scoring ≥70 to caregivers table
-- Mock mode if no Bland AI key
+### Modified Files (UX fixes across all pages)
+- **Every data page** — Add proper loading skeletons (matching content shape), empty states with icon + headline + CTA button, and error states with retry
+- **All forms** — Add Zod validation, red asterisks on required fields, disable submit buttons during mutations
+- **Caregiver add dialog** — Add duplicate phone/email detection warning
+- **Destructive actions** — Add AlertDialog confirmations for deletes
+- **Search inputs** — Add 300ms debounce (Caregivers, Campaigns, Inbox)
+- **Caregivers kanban** — Add status transition validation (prevent invalid moves)
+- **Toast consistency** — Standardize all toast messages
 
-**Talent Sourcing Page Updates:**
-- Campaigns tab: "Run Now" button → calls source-candidates; "Enrich All" button
-- Candidates tab: "Queue for Outreach" bulk action with sequence type modal
-- New "Agent Activity" tab: real-time feed from agent_activity_log via Supabase Realtime
-- New "Outreach Sequences" tab: read-only preview of pre-built sequences
-- New "Phone Screening" tab: table with call status, AI score, recommendation badges; expandable rows with transcript, summary, recording player; "Schedule Call" and "Bulk Screen" buttons
-
-**New hooks:**
-- `useAgentActivityLog()`, `usePhoneScreens()`
+### Pages to audit for empty/loading/error states:
+Dashboard, Caregivers, Campaigns (all 8 tabs), Landing Pages, Content Calendar, Ad Creatives, Talent Sourcing (5 tabs), Competitors, Reviews, Recommendations, Enrollment, Automations, Briefing, Playbooks
 
 ---
 
-### Round 3: Notifications, Dashboard, Chat, Automations (Phases 4, 6, 7, 8)
+## Round 2: Inbound Webhooks & Inbox (Section 1)
 
-**Real-time Notifications:**
-- Enable Realtime on notifications, activity_log, agent_activity_log
-- Notification bell in app header: Supabase Realtime subscription, unread badge count, dropdown panel with type-based icons, "Mark All Read", click-to-navigate
+### Database Changes (migration)
+- Create `inbound_messages` table with agency_id, channel, from_contact, to_contact, subject, body, external_id, caregiver_id, sourced_candidate_id, matched, read, metadata, created_at
+- Create `conversation_threads` table with agency_id, contact_phone, contact_email, contact_name, caregiver_id, sourced_candidate_id, channel, last_message_at, last_message_preview, unread_count, status, created_at
+- RLS policies for both tables
+- Enable Supabase Realtime on `inbound_messages`
 
-**Dashboard Enhancements:**
-- New "Messaging Stats" card: messages sent this week, SMS/email breakdown, failed count
-- Wire recruitment agent stats to live queries (sourced this week, outreach sent, screens done, auto-promoted)
-- Integration status indicator row: Twilio/SendGrid/Clay/GHL/Bland AI connection icons
+### New Edge Function
+- `webhook-inbound` — Public endpoint accepting Twilio SMS webhooks and SendGrid Inbound Parse webhooks. Detects channel, matches to agency via `api_keys`, matches to caregiver/candidate, inserts to `inbound_messages`, creates notification, auto-detects keywords (YES/STOP/UNSUBSCRIBE), updates conversation threads
 
-**Halevai Chat Context Expansion:**
-- Add to existing context queries: sourcing_campaigns stats, sourced_candidates by outreach_status, phone_screens stats (last 7 days), agent_activity_log (last 5), api_keys connected status, message_log stats by channel
-- Update system prompt to reference recruitment and messaging data
+### New Page
+- `src/pages/Inbox.tsx` — Two-panel messaging inbox (thread list + conversation view) with real-time updates, compose bar, channel toggle, contact info, and "Link to Caregiver" for unmatched contacts
 
-**Automation Engine Expansion:**
-- Insert 9 new automation configs per agency: auto_welcome_sms, auto_followup_sms, process_sequences, auto_source_candidates, auto_outreach_high_match, auto_screen_responded, auto_review_request, background_check_reminder, auth_expiry_alert
-- Extend run-automations to handle all new keys, calling send-message/source-candidates/trigger-outreach/ai-phone-screen as appropriate
-- Automations page: group by category (Messaging, Recruitment, Enrollment, Reviews, Intelligence)
-
----
-
-### Technical Details
-
-**Security considerations:**
-- api_keys table stores credentials in plaintext (Supabase encrypts at rest). RLS restricts to owner/admin only — viewers and other roles cannot see API keys
-- All edge functions validate auth headers before accessing agency data
-- External API calls wrapped in try/catch with error logging
-
-**Existing code impact:**
-- No existing tables modified
-- `run-automations` edge function extended (not replaced)
-- `halevai-chat` edge function extended (not replaced)
-- Settings page gets new tab (existing tabs untouched)
-- TalentSourcing page gets new tabs and buttons (existing functionality preserved)
-- Dashboard gets new cards (existing cards preserved)
-- `useAgencyData.ts` gets new hooks appended (existing hooks untouched)
-
-**Pattern compliance:**
-- All new tables use agency_id + RLS pattern
-- Edge functions use verify_jwt = false + manual auth
-- Lovable AI Gateway for AI analysis (phone screen transcript)
-- TanStack React Query for all data fetching
-- Dark theme with existing design system classes
+### Modified Files
+- `src/App.tsx` — Add `/inbox` route
+- `src/components/AppSidebar.tsx` — Add "Inbox" nav item under CORE with unread badge
+- `src/hooks/useAgencyData.ts` — Add `useInboundMessages()`, `useConversationThreads()`, `useThreadMessages()`, `useUnreadCount()` hooks
+- `src/pages/Caregivers.tsx` — Add "Messages" section in caregiver detail sheet
+- `src/components/IntegrationsTab.tsx` — Add webhook URL display + copy button for Twilio and SendGrid setup
+- `supabase/config.toml` — Add `webhook-inbound` function config
 
 ---
 
-### Recommended Implementation Order
+## Round 3: Advanced Sequence Branching (Section 2)
 
-**Start with Round 1** (this session) — it unblocks everything else since send-message and api_keys are dependencies for Rounds 2 and 3.
+### Database Changes
+- Add columns to `sequence_steps`: `step_type`, `condition_type`, `condition_value`, `true_next_step_id`, `false_next_step_id`, `action_type`, `action_config`
 
-Shall I proceed with Round 1 implementation?
+### Modified Edge Function
+- `run-automations` — Update sequence processing to handle condition nodes (check replied/no_reply/keyword_match/status_changed/score thresholds), action nodes (update_status, create_notification, enroll/remove from sequence, update_score), and wait nodes
+
+### New Component
+- `src/components/SequenceBuilder.tsx` — Visual flow builder with canvas area showing connected nodes (message/condition/action/wait), editor side panel, toolbar with node type buttons + AI Generate, and 3 pre-built smart sequence templates (Smart Nurture, Hot Lead Fast Track, Competitor Poach)
+
+### Modified Files
+- `src/pages/Campaigns.tsx` — Replace SequencesTab inline editor with new SequenceBuilder
+- `src/pages/TalentSourcing.tsx` — Same SequenceBuilder in Sequences tab
+- `src/hooks/useAgencyData.ts` — Add `useSequenceStepsByFlow()` and `useSaveSequenceFlow()` hooks
+
+---
+
+## Round 4: White-Label & Expanded Roles (Section 4)
+
+### Database Changes
+- Add `operations_manager`, `intake_coordinator` values to `agency_role` enum (note: `viewer` already exists based on code)
+- Update RLS policies to enforce role-based write restrictions
+
+### Modified Files
+- `src/lib/permissions.ts` — Already created in Round 1, now fully enforced
+- `src/hooks/useAuth.tsx` — Expose full `agencyRole` for permission checks
+- `src/components/TeamMembers.tsx` — Upgrade: avatar/initials, role badges, invite flow with email + role select, role editing (owner only), member removal with confirmation, transfer ownership
+- `src/components/IntegrationsTab.tsx` — Hide for non-admin roles
+- `src/pages/Settings.tsx` — Add branding fields (hide_halevai_branding toggle, email_from_name, email_reply_to, custom_domain)
+- `src/pages/PublicLandingPage.tsx` — Verify full white-label: agency colors, logo, name throughout; conditionally hide "Built with Halevai.ai"
+- All pages with write actions — Wrap in permission checks, show "View Only" badge for viewer role
+
+---
+
+## Round 5: Ad Platform API Integration (Section 3)
+
+### Modified Files
+- `src/components/IntegrationsTab.tsx` — Add Facebook, Google Ads, Indeed API key fields
+- `supabase/functions/post-to-ads/index.ts` — Upgrade to use per-agency `api_keys` table for Facebook/Google/Indeed credentials (instead of env vars), implement real Facebook Marketing API posting, Google Ads REST API posting, Indeed Sponsored Jobs API
+- `src/pages/Campaigns.tsx` — Add platform status indicators on campaign cards, "Post Now" button, "View on Platform" link, "Sync Stats" button
+- `src/pages/CampaignBuilder.tsx` — Add "Create & Post" button in Step 4 with per-platform result indicators
+
+---
+
+## Technical Notes
+
+- All new tables use `agency_id` column with standard RLS pattern
+- No new npm dependencies needed (uses existing @dnd-kit, shadcn/ui, lucide-react)
+- Edge functions follow existing pattern: Deno, `verify_jwt = false`, service_role_key for DB writes
+- All hooks follow existing `useAgencyQuery` pattern in `useAgencyData.ts`
+- Design system unchanged: dark theme, cyan primary, purple accent, Space Grotesk + IBM Plex Mono
+
+Each round is independently deployable. Approve to begin with Round 1 (UX Polish).
 
