@@ -16,11 +16,23 @@ Deno.serve(async (req) => {
     const { agencyId } = await req.json();
     if (!agencyId) throw new Error("agencyId required");
 
+    // If "all", fetch every agency and process each
+    let agencyIds: string[] = [];
+    if (agencyId === "all") {
+      const { data: agencies } = await sb.from("agencies").select("id");
+      agencyIds = (agencies || []).map((a: any) => a.id);
+    } else {
+      agencyIds = [agencyId];
+    }
+
+    const allResults: { agency: string; results: { key: string; actions: number }[] }[] = [];
+
+    for (const aid of agencyIds) {
     // Load active automations for this agency
     const { data: automations, error: autErr } = await sb
       .from("automation_configs")
       .select("*")
-      .eq("agency_id", agencyId)
+      .eq("agency_id", aid)
       .eq("active", true);
     if (autErr) throw autErr;
 
@@ -65,29 +77,26 @@ Deno.serve(async (req) => {
         }
 
         case "follow_up_reminders": {
-          // Find caregivers in contacted/intake_started with no contact in 3+ days
           const { data: stale } = await sb.from("caregivers")
             .select("id, full_name, status, last_contacted_at, created_at")
-            .eq("agency_id", agencyId)
+            .eq("agency_id", aid)
             .in("status", ["contacted", "intake_started"]);
 
           const threeDaysAgo = Date.now() - 3 * 86400000;
           for (const c of stale || []) {
             const lastContact = c.last_contacted_at || c.created_at;
             if (lastContact && new Date(lastContact).getTime() < threeDaysAgo) {
-              // Set follow_up_date to today if not already set
               const today = new Date().toISOString().slice(0, 10);
               await sb.from("caregivers").update({
                 follow_up_date: today,
                 auto_followup_count: (c as any).auto_followup_count ? (c as any).auto_followup_count + 1 : 1,
               }).eq("id", c.id);
 
-              // Create notification
               const { data: members } = await sb.from("agency_members")
-                .select("user_id").eq("agency_id", agencyId).limit(1);
+                .select("user_id").eq("agency_id", aid).limit(1);
               if (members?.[0]) {
                 await sb.from("notifications").insert({
-                  agency_id: agencyId,
+                  agency_id: aid,
                   user_id: members[0].user_id,
                   title: `Follow up needed: ${c.full_name}`,
                   body: `${c.full_name} hasn't been contacted in 3+ days. Status: ${c.status}`,
@@ -102,19 +111,18 @@ Deno.serve(async (req) => {
         }
 
         case "performance_alerts": {
-          // Check campaigns exceeding spend threshold
           const { data: campaigns } = await sb.from("campaigns")
             .select("id, campaign_name, spend, pause_spend_threshold, conversions")
-            .eq("agency_id", agencyId)
+            .eq("agency_id", aid)
             .eq("status", "active");
 
           for (const camp of campaigns || []) {
             if (camp.pause_spend_threshold && (camp.spend || 0) >= camp.pause_spend_threshold) {
               const { data: members } = await sb.from("agency_members")
-                .select("user_id").eq("agency_id", agencyId).limit(1);
+                .select("user_id").eq("agency_id", aid).limit(1);
               if (members?.[0]) {
                 await sb.from("notifications").insert({
-                  agency_id: agencyId,
+                  agency_id: aid,
                   user_id: members[0].user_id,
                   title: `⚠️ Campaign spend alert: ${camp.campaign_name}`,
                   body: `Campaign "${camp.campaign_name}" has reached $${camp.spend} (threshold: $${camp.pause_spend_threshold}). ${camp.conversions || 0} conversions.`,
@@ -131,7 +139,7 @@ Deno.serve(async (req) => {
         case "stale_enrollment_alerts": {
           const { data: stale } = await sb.from("caregivers")
             .select("id, full_name, status, enrollment_started_at, created_at")
-            .eq("agency_id", agencyId)
+            .eq("agency_id", aid)
             .in("status", ["intake_started", "enrollment_pending"]);
 
           const fourteenDaysAgo = Date.now() - 14 * 86400000;
@@ -139,10 +147,10 @@ Deno.serve(async (req) => {
             const ref = c.enrollment_started_at || c.created_at;
             if (ref && new Date(ref).getTime() < fourteenDaysAgo) {
               const { data: members } = await sb.from("agency_members")
-                .select("user_id").eq("agency_id", agencyId).limit(1);
+                .select("user_id").eq("agency_id", aid).limit(1);
               if (members?.[0]) {
                 await sb.from("notifications").insert({
-                  agency_id: agencyId,
+                  agency_id: aid,
                   user_id: members[0].user_id,
                   title: `Stale enrollment: ${c.full_name}`,
                   body: `${c.full_name} has been in "${c.status}" for over 14 days.`,
@@ -168,13 +176,16 @@ Deno.serve(async (req) => {
 
     // Log activity
     await sb.from("activity_log").insert({
-      agency_id: agencyId,
+      agency_id: aid,
       action: "automations_run",
       details: `Ran ${results.length} automations, ${results.reduce((s, r) => s + r.actions, 0)} total actions`,
       actor: "system",
     });
 
-    return new Response(JSON.stringify({ results }), {
+    allResults.push({ agency: aid, results });
+    } // end agency loop
+
+    return new Response(JSON.stringify({ results: allResults }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
