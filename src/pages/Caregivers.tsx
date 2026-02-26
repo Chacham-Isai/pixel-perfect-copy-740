@@ -9,7 +9,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Filter, Download, Plus, Phone, Mail, MapPin, Clock, Loader2, DollarSign, Shield } from "lucide-react";
+import { Search, Filter, Download, Plus, Phone, Mail, MapPin, Clock, Loader2, DollarSign, Shield, Users } from "lucide-react";
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
+import { EmptyState } from "@/components/ui/states";
 import { usePermission } from "@/components/PermissionGate";
 import { useCaregivers, usePayRateIntel, type Caregiver } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
@@ -135,6 +137,8 @@ const Caregivers = () => {
   const [form, setForm] = useState({ full_name: "", phone: "", email: "", state: "", county: "", city: "", language_primary: "english", source: "direct", notes: "" });
   const [activeCaregiver, setActiveCaregiver] = useState<Caregiver | null>(null);
   const [composeChannel, setComposeChannel] = useState<"sms" | "email" | null>(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -237,6 +241,13 @@ const Caregivers = () => {
   return (
     <AppLayout>
       <div className="space-y-4">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem><BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem><BreadcrumbPage>Caregivers</BreadcrumbPage></BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <div>
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-foreground">Caregiver Pipeline</h1>
@@ -339,44 +350,57 @@ const Caregivers = () => {
 
         {isLoading ? (
           <div className="flex gap-3">{Array(6).fill(0).map((_, i) => <Skeleton key={i} className="min-w-[260px] flex-1 h-48" />)}</div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No caregivers yet"
+            description="Add your first caregiver to start building your pipeline."
+            actionLabel="Add Caregiver"
+            onAction={() => setAddOpen(true)}
+          />
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex gap-3 overflow-x-auto pb-4">
-              {columns.map((col) => {
-                const cards = filtered.filter(c => c.status === col.key);
-                return (
-                  <DroppableColumn key={col.key} id={col.key}>
-                    <div className="flex items-center gap-2 mb-3 px-1">
-                      <div className={`h-3 w-3 rounded-full ${col.color}`} />
-                      <span className="text-sm font-medium text-foreground">{col.label}</span>
-                      <Badge variant="secondary" className="ml-auto text-xs font-data">{cards.length}</Badge>
-                    </div>
-                    <div className="space-y-2 min-h-[100px]">
-                      {cards.map((c) => (
-                        <DraggableCard
-                          key={c.id}
-                          caregiver={c}
-                          onClick={() => setSelectedCaregiver(c)}
-                        />
-                      ))}
-                    </div>
-                  </DroppableColumn>
-                );
-              })}
+          <>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="flex gap-3 overflow-x-auto pb-4">
+                {columns.map((col) => {
+                  const cards = filtered.filter(c => c.status === col.key);
+                  return (
+                    <DroppableColumn key={col.key} id={col.key}>
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <div className={`h-3 w-3 rounded-full ${col.color}`} />
+                        <span className="text-sm font-medium text-foreground">{col.label}</span>
+                        <Badge variant="secondary" className="ml-auto text-xs font-data">{cards.length}</Badge>
+                      </div>
+                      <div className="space-y-2 min-h-[100px]">
+                        {cards.map((c) => (
+                          <DraggableCard
+                            key={c.id}
+                            caregiver={c}
+                            onClick={() => setSelectedCaregiver(c)}
+                          />
+                        ))}
+                      </div>
+                    </DroppableColumn>
+                  );
+                })}
+              </div>
+              <DragOverlay>
+                {activeCaregiver ? (
+                  <div className="w-[260px] opacity-90 rotate-2 scale-105">
+                    <CaregiverCard caregiver={activeCaregiver} />
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+            <div className="flex items-center justify-between text-sm text-muted-foreground pt-2">
+              <span>{filtered.length} caregiver{filtered.length !== 1 ? "s" : ""} total</span>
             </div>
-            <DragOverlay>
-              {activeCaregiver ? (
-                <div className="w-[260px] opacity-90 rotate-2 scale-105">
-                  <CaregiverCard caregiver={activeCaregiver} />
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+          </>
         )}
       </div>
 

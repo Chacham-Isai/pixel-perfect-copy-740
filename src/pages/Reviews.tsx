@@ -165,7 +165,14 @@ const Reviews = () => {
                     </CardContent>
                   </Card>
                 ))}
-                {all.length === 0 && <p className="text-center text-muted-foreground py-8">No reviews yet</p>}
+                {all.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Star className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-1">No reviews yet</h3>
+                    <p className="text-sm text-muted-foreground max-w-md mb-4">Request reviews from active caregivers to build your online reputation.</p>
+                    <Button onClick={() => setSolicitOpen(true)} className="bg-primary text-primary-foreground"><Send className="h-4 w-4 mr-1" /> Request Reviews</Button>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
