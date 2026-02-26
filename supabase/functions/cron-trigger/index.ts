@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
-const VALID_JOBS = ["automations", "briefing", "scoring", "sequences"] as const;
+const VALID_JOBS = ["automations", "briefing", "scoring", "sequences", "sync-ads"] as const;
 type JobType = typeof VALID_JOBS[number];
 
 Deno.serve(async (req) => {
@@ -58,8 +58,10 @@ Deno.serve(async (req) => {
             fnName = "score-leads";
             break;
           case "sequences":
-            // Sequences are processed by run-automations' process_sequences handler
             fnName = "run-automations";
+            break;
+          case "sync-ads":
+            fnName = "sync-ad-metrics";
             break;
         }
 

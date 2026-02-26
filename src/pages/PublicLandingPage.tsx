@@ -35,6 +35,11 @@ interface AgencyInfo {
   logo_url: string | null;
   website_url: string | null;
   hide_halevai_branding: boolean | null;
+  primary_color: string | null;
+  tagline: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  linkedin_url: string | null;
 }
 
 const PublicLandingPage = () => {
@@ -71,11 +76,22 @@ const PublicLandingPage = () => {
 
       // Fetch agency info
       const { data: ag } = await supabase.from("agencies").select("name, phone, email, logo_url, website_url").eq("id", lp.agency_id).single();
-      if (ag) setAgency({ ...ag, hide_halevai_branding: false });
-
-      // Check business_config for white-label setting
-      const { data: bc } = await supabase.from("business_config").select("hide_halevai_branding").eq("agency_id", lp.agency_id).maybeSingle();
-      if (bc && ag) setAgency({ ...ag, hide_halevai_branding: bc.hide_halevai_branding });
+      const { data: bc } = await supabase.from("business_config").select("*").eq("agency_id", lp.agency_id).maybeSingle();
+      if (ag) {
+        setAgency({
+          name: bc?.business_name || ag.name,
+          phone: bc?.phone || ag.phone,
+          email: bc?.email || ag.email,
+          logo_url: bc?.logo_url || ag.logo_url,
+          website_url: bc?.website_url || ag.website_url,
+          hide_halevai_branding: bc?.hide_halevai_branding || false,
+          primary_color: bc?.primary_color || null,
+          tagline: bc?.tagline || null,
+          facebook_url: bc?.facebook_url || null,
+          instagram_url: bc?.instagram_url || null,
+          linkedin_url: bc?.linkedin_url || null,
+        });
+      }
 
       // Track page view
       await supabase.from("landing_page_events").insert({
@@ -177,7 +193,8 @@ const PublicLandingPage = () => {
       <Sonner />
       {/* Hero Section */}
       <section className="relative py-20 px-4 overflow-hidden">
-        <div className="absolute inset-0 halevai-bg-gradient" />
+        <div className="absolute inset-0" style={agency?.primary_color ? { background: `linear-gradient(135deg, ${agency.primary_color}15 0%, transparent 60%)` } : {}} />
+        <div className="absolute inset-0 halevai-bg-gradient" style={agency?.primary_color ? { opacity: 0.3 } : {}} />
         <div className="relative max-w-4xl mx-auto text-center space-y-6">
           {agency?.logo_url && <img src={agency.logo_url} alt={agency.name} className="h-16 mx-auto mb-4" />}
           {page.pay_rate_highlight && (
@@ -190,7 +207,7 @@ const PublicLandingPage = () => {
             {page.hero_headline || `Join ${agency?.name || "Our Team"}`}
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            {page.hero_subheadline || "Start your caregiving career today with competitive pay and full support."}
+            {page.hero_subheadline || agency?.tagline || "Start your caregiving career today with competitive pay and full support."}
           </p>
           <Button size="lg" className="bg-primary text-primary-foreground halevai-glow text-lg px-8" onClick={() => document.getElementById("apply-form")?.scrollIntoView({ behavior: "smooth" })}>
             {page.hero_cta_text || "Apply Now"} →
@@ -323,6 +340,13 @@ const PublicLandingPage = () => {
             {agency?.phone && <a href={`tel:${agency.phone}`} className="flex items-center gap-1 hover:text-primary"><Phone className="h-4 w-4" />{agency.phone}</a>}
             {agency?.email && <a href={`mailto:${agency.email}`} className="flex items-center gap-1 hover:text-primary"><Mail className="h-4 w-4" />{agency.email}</a>}
           </div>
+          {(agency?.facebook_url || agency?.instagram_url || agency?.linkedin_url) && (
+            <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+              {agency.facebook_url && <a href={agency.facebook_url} target="_blank" rel="noopener noreferrer" className="hover:text-primary">Facebook</a>}
+              {agency.instagram_url && <a href={agency.instagram_url} target="_blank" rel="noopener noreferrer" className="hover:text-primary">Instagram</a>}
+              {agency.linkedin_url && <a href={agency.linkedin_url} target="_blank" rel="noopener noreferrer" className="hover:text-primary">LinkedIn</a>}
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} {agency?.name}. All rights reserved.</p>
           {!agency?.hide_halevai_branding && (
             <p className="text-xs text-muted-foreground/50 mt-2">Built with Halevai.ai</p>

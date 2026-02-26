@@ -161,8 +161,8 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (sgKey) {
-        const fromEmail = config?.email || "noreply@halevai.ai";
-        const fromName = config?.business_name || "Halevai";
+        const fromEmail = config?.email_reply_to || config?.email || "noreply@halevai.ai";
+        const fromName = config?.email_from_name || config?.business_name || "Halevai";
         const htmlBody = buildBrandedHtml(body, config);
 
         const result = await sendEmail(sgKey, to, subject || "Message from your agency", htmlBody, fromEmail, fromName);
