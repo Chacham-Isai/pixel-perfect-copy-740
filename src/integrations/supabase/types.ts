@@ -1376,6 +1376,65 @@ export type Database = {
           },
         ]
       }
+      pay_rate_intel: {
+        Row: {
+          agency_id: string
+          analysis_summary: string | null
+          competitor_count: number | null
+          county: string | null
+          created_at: string | null
+          id: string
+          market_avg_rate: number | null
+          market_max_rate: number | null
+          market_min_rate: number | null
+          medicaid_reimbursement_rate: number | null
+          recommended_rate: number | null
+          sources: Json | null
+          state: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          analysis_summary?: string | null
+          competitor_count?: number | null
+          county?: string | null
+          created_at?: string | null
+          id?: string
+          market_avg_rate?: number | null
+          market_max_rate?: number | null
+          market_min_rate?: number | null
+          medicaid_reimbursement_rate?: number | null
+          recommended_rate?: number | null
+          sources?: Json | null
+          state?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          analysis_summary?: string | null
+          competitor_count?: number | null
+          county?: string | null
+          created_at?: string | null
+          id?: string
+          market_avg_rate?: number | null
+          market_max_rate?: number | null
+          market_min_rate?: number | null
+          medicaid_reimbursement_rate?: number | null
+          recommended_rate?: number | null
+          sources?: Json | null
+          state?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_rate_intel_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       phone_screens: {
         Row: {
           agency_id: string

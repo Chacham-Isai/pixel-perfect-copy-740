@@ -9,8 +9,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Filter, Download, Plus, Phone, Mail, MapPin, Clock, Loader2 } from "lucide-react";
-import { useCaregivers, type Caregiver } from "@/hooks/useAgencyData";
+import { Search, Filter, Download, Plus, Phone, Mail, MapPin, Clock, Loader2, DollarSign } from "lucide-react";
+import { useCaregivers, usePayRateIntel, type Caregiver } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -118,6 +118,7 @@ function CaregiverCard({ caregiver: c, onClick }: { caregiver: Caregiver; onClic
 
 const Caregivers = () => {
   const { data: caregivers, isLoading } = useCaregivers();
+  const { data: rateIntel } = usePayRateIntel();
   const { agencyId } = useAuth();
   const qc = useQueryClient();
   const [selectedCaregiver, setSelectedCaregiver] = useState<Caregiver | null>(null);
@@ -401,6 +402,20 @@ const Caregivers = () => {
                         {selectedCaregiver.patient_medicaid_status && <div className="text-sm"><span className="text-muted-foreground">Medicaid:</span> <span className="text-foreground capitalize">{selectedCaregiver.patient_medicaid_status}</span></div>}
                       </CardContent>
                     </Card>
+                  </div>
+                )}
+                {rateIntel && (
+                  <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <DollarSign className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-semibold text-foreground uppercase tracking-wide">Suggested Offer Rate</span>
+                    </div>
+                    <div className="font-data text-2xl font-bold text-primary">
+                      ${Number(rateIntel.recommended_rate).toFixed(0)}/hr
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Market avg: ${Number(rateIntel.market_avg_rate).toFixed(0)}/hr • Medicaid cap: ${Number(rateIntel.medicaid_reimbursement_rate).toFixed(0)}/hr
+                    </p>
                   </div>
                 )}
                 <div className="flex gap-2">
