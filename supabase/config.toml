@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.cron-trigger]
 verify_jwt = false
+
+[functions.sync-ad-metrics]
+verify_jwt = false

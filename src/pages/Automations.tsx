@@ -45,6 +45,7 @@ const scheduledJobs = [
   { key: "briefing", label: "Daily Briefing", cadence: "Daily 7 AM", cron: "0 7 * * *", desc: "Generate morning performance report" },
   { key: "scoring", label: "Lead Scoring", cadence: "Every 30 min", cron: "*/30 * * * *", desc: "Score unscored caregivers" },
   { key: "sequences", label: "Process Sequences", cadence: "Every 15 min", cron: "*/15 * * * *", desc: "Advance active sequence enrollments" },
+  { key: "sync-ads", label: "Sync Ad Metrics", cadence: "Every 6 hrs", cron: "0 */6 * * *", desc: "Pull spend/clicks/conversions from ad platforms" },
 ];
 
 const Automations = () => {
