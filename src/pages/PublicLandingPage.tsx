@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Phone, Mail, MapPin, DollarSign, Heart, Shield, Clock, ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import defaultLogo from "@/assets/logo-transparent.png";
 
 interface LandingPageData {
   id: string;
@@ -162,7 +163,12 @@ const PublicLandingPage = () => {
   const benefitIcons = [DollarSign, Heart, Shield, Clock, CheckCircle];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Watermark overlay */}
+      <div
+        className="fixed inset-0 pointer-events-none select-none z-0"
+        style={{ backgroundImage: `url(${agency?.logo_url || defaultLogo})`, backgroundRepeat: 'repeat', backgroundSize: '120px', opacity: 0.035 }}
+      />
       <Sonner />
       {/* Hero Section */}
       <section className="relative py-20 px-4 overflow-hidden">

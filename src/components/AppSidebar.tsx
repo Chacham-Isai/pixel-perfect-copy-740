@@ -71,7 +71,7 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-border">
       <Link to="/dashboard" className="p-5 flex items-center gap-3 hover:opacity-80 transition-opacity">
-        <img src={logo} alt="Halevai.ai" className="h-12 w-auto" />
+        <img src={logo} alt="Halevai.ai" className="h-16 w-auto" />
         <span className="text-xl font-bold halevai-text">halevai.ai</span>
       </Link>
 
