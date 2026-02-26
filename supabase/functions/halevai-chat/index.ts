@@ -60,6 +60,11 @@ serve(async (req) => {
       staleRes,
       topSourceRes,
       revenueRes,
+      sourcedCandidatesRes,
+      phoneScreensRes,
+      agentActivityRes,
+      apiKeysRes,
+      messageLogRes,
     ] = await Promise.all([
       supabase.from("agencies").select("*").eq("id", agencyId).single(),
       supabase.from("caregivers").select("id, full_name, status, lead_score, source, state, county, created_at").eq("agency_id", agencyId).order("created_at", { ascending: false }).limit(50),
@@ -77,6 +82,12 @@ serve(async (req) => {
       supabase.from("caregivers").select("id, full_name, status, last_contacted_at").eq("agency_id", agencyId).in("status", ["new", "contacted"]).order("last_contacted_at", { ascending: true }).limit(10),
       supabase.from("caregivers").select("source").eq("agency_id", agencyId),
       supabase.from("caregivers").select("monthly_revenue").eq("agency_id", agencyId).eq("status", "active"),
+      // NEW: Recruitment & messaging context
+      supabase.from("sourced_candidates").select("outreach_status").eq("agency_id", agencyId),
+      supabase.from("phone_screens").select("status, ai_score, ai_recommendation, created_at").eq("agency_id", agencyId),
+      supabase.from("agent_activity_log").select("agent_type, action, details, created_at").eq("agency_id", agencyId).order("created_at", { ascending: false }).limit(5),
+      supabase.from("api_keys").select("key_name, connected").eq("agency_id", agencyId),
+      supabase.from("message_log").select("channel, status, created_at").eq("agency_id", agencyId),
     ]);
 
     const agency = agencyRes.data;
@@ -95,6 +106,11 @@ serve(async (req) => {
     const staleLeads = staleRes.data || [];
     const allSources = topSourceRes.data || [];
     const activeRevenue = revenueRes.data || [];
+    const sourcedCandidates = sourcedCandidatesRes.data || [];
+    const phoneScreensData = phoneScreensRes.data || [];
+    const agentActivity = agentActivityRes.data || [];
+    const apiKeysData = apiKeysRes.data || [];
+    const messageLogData = messageLogRes.data || [];
 
     // Compute stats
     const totalCaregivers = caregivers.length;
@@ -111,6 +127,24 @@ serve(async (req) => {
     const totalSpend = activeCampaigns.reduce((s, c) => s + (c.spend || 0), 0);
     const totalConversions = activeCampaigns.reduce((s, c) => s + (c.conversions || 0), 0);
     const avgCPA = totalConversions > 0 ? (totalSpend / totalConversions).toFixed(2) : "N/A";
+
+    // NEW: Recruitment & messaging stats
+    const outreachCounts: Record<string, number> = {};
+    sourcedCandidates.forEach(c => { outreachCounts[c.outreach_status || "unknown"] = (outreachCounts[c.outreach_status || "unknown"] || 0) + 1; });
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const recentScreens = phoneScreensData.filter(s => s.created_at && s.created_at > sevenDaysAgo);
+    const completedScreens = recentScreens.filter(s => s.status === "completed");
+    const avgScreenScore = completedScreens.length > 0 ? Math.round(completedScreens.reduce((s, c) => s + (c.ai_score || 0), 0) / completedScreens.length) : 0;
+    const advancedCount = completedScreens.filter(s => s.ai_recommendation === "advance").length;
+
+    const connectedIntegrations = apiKeysData.filter(k => k.connected).map(k => k.key_name);
+    const disconnectedIntegrations = apiKeysData.filter(k => !k.connected).map(k => k.key_name);
+
+    const recentMessages = messageLogData.filter(m => m.created_at && m.created_at > sevenDaysAgo);
+    const msgByChannel: Record<string, number> = {};
+    recentMessages.forEach(m => { msgByChannel[m.channel] = (msgByChannel[m.channel] || 0) + 1; });
+    const failedMsgCount = recentMessages.filter(m => m.status === "failed").length;
 
     const systemPrompt = `You are Halevai AI, an expert home care agency growth strategist for "${agency?.name || "this agency"}".
 You operate across states: ${agency?.states?.join(", ") || "unknown"}.
@@ -162,6 +196,26 @@ ${landingPages.map(lp => `- ${lp.title}: ${lp.views} views, ${lp.form_submission
 ### Sourcing Campaigns
 ${sourcing.map(s => `- ${s.name}: ${s.candidates_found} found, ${s.candidates_enriched} enriched, status: ${s.status}`).join("\n") || "- No sourcing campaigns"}
 
+### Sourced Candidates Pipeline
+- Total sourced: ${sourcedCandidates.length}
+- By outreach status: ${JSON.stringify(outreachCounts)}
+
+### AI Phone Screening (Last 7 Days)
+- Screens completed: ${completedScreens.length}
+- Average AI score: ${avgScreenScore}/100
+- Candidates recommended to advance: ${advancedCount}
+
+### Recent Agent Activity
+${agentActivity.map(a => `- [${a.agent_type}] ${a.action}: ${a.details || "no details"} (${a.created_at})`).join("\n") || "- No recent agent activity"}
+
+### Integrations Connected
+- Connected: ${connectedIntegrations.length > 0 ? connectedIntegrations.join(", ") : "None"}
+- Not configured: ${disconnectedIntegrations.length > 0 ? disconnectedIntegrations.join(", ") : "All connected"}
+
+### Messaging (Last 7 Days)
+- Messages by channel: ${JSON.stringify(msgByChannel)}
+- Failed messages: ${failedMsgCount}
+
 ### Automations
 - Active automations: ${automations.filter(a => a.active).length}/${automations.length}
 
@@ -173,6 +227,8 @@ ${recommendations.map(r => `- [${r.priority}] ${r.title}: ${r.description}`).joi
 - When suggesting campaigns, include target geography, messaging, and budget
 - When discussing competitors, reference their actual pay rates and ratings
 - Proactively flag issues: stale leads, underperforming campaigns, competitor moves
+- Mention integration status when relevant (e.g. "Connect Twilio to start sending SMS")
+- Reference recruitment agent metrics when discussing sourcing
 - Suggest actionable next steps the user can take right now
 - Keep responses focused and under 400 words unless asked for detail`;
 
