@@ -1,9 +1,14 @@
+import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Newspaper, TrendingUp, Users, AlertTriangle, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Newspaper, TrendingUp, Users, AlertTriangle, CheckCircle, Sparkles, Loader2 } from "lucide-react";
 import { useCaregivers, useCampaigns, useReviews, useSourcedCandidates, useRecommendations } from "@/hooks/useAgencyData";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 const Briefing = () => {
   const { data: caregivers, isLoading } = useCaregivers();
@@ -11,6 +16,8 @@ const Briefing = () => {
   const { data: reviews } = useReviews();
   const { data: sourced } = useSourcedCandidates();
   const { data: recs } = useRecommendations();
+  const { agencyId, user } = useAuth();
+  const [generating, setGenerating] = useState(false);
 
   const all = caregivers || [];
   const active = campaigns?.filter(c => c.status === "active") || [];
@@ -19,7 +26,6 @@ const Briefing = () => {
     return Date.now() - d.getTime() < 86400000;
   });
   const hotLeads = newToday.filter(c => c.lead_tier === "HOT");
-  const totalSpendYesterday = active.reduce((s, c) => s + (c.spend || 0), 0) / 30; // estimate daily
   const totalConversions = active.reduce((s, c) => s + (c.conversions || 0), 0);
   const avgCPA = totalConversions > 0 ? (active.reduce((s, c) => s + (c.spend || 0), 0) / totalConversions).toFixed(2) : "0";
   const staleEnrollments = all.filter(c => {
@@ -31,13 +37,33 @@ const Briefing = () => {
   const unrespondedReviews = (reviews || []).filter(r => !r.responded && (r.rating || 5) <= 3);
   const pendingRecs = (recs || []).filter(r => r.status === "pending");
 
+  const handleGenerateBriefing = async () => {
+    if (!agencyId) return;
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-briefing", {
+        body: { agencyId, userId: user?.id },
+      });
+      if (error) throw error;
+      toast.success("Briefing generated and saved!");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to generate briefing");
+    }
+    setGenerating(false);
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Newspaper className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground">Daily Briefing</h1>
-          <span className="text-sm text-muted-foreground font-data">{format(new Date(), "MMMM d, yyyy")}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Newspaper className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold text-foreground">Daily Briefing</h1>
+            <span className="text-sm text-muted-foreground font-data">{format(new Date(), "MMMM d, yyyy")}</span>
+          </div>
+          <Button size="sm" onClick={handleGenerateBriefing} disabled={generating} className="bg-primary text-primary-foreground">
+            {generating ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Generating...</> : <><Sparkles className="h-4 w-4 mr-1" />Save Briefing</>}
+          </Button>
         </div>
 
         {isLoading ? <Skeleton className="h-32" /> : (

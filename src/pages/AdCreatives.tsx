@@ -14,10 +14,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const AdCreatives = () => {
   const { data: creatives, isLoading, refetch } = useAdCreatives();
   const { agencyId } = useAuth();
+  const qc = useQueryClient();
   const all = creatives || [];
   const [genOpen, setGenOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
@@ -34,7 +36,6 @@ const AdCreatives = () => {
         body: { agencyId, prompt, platform },
       });
       if (error) throw error;
-      // Save creative to DB
       await supabase.from("ad_creatives").insert({
         agency_id: agencyId!,
         headline: data?.headline || "",
@@ -54,6 +55,32 @@ const AdCreatives = () => {
 
   const handleAutoPrompt = () => {
     setPrompt("Warm, professional photo of a diverse caregiver helping an elderly person at home. Bright natural lighting, genuine smiles. Include text overlay space for $21/hr headline. Home care agency branding.");
+  };
+
+  const handleDownload = (c: any) => {
+    const content = `HEADLINE:\n${c.headline || ""}\n\nBODY COPY:\n${c.body_copy || ""}\n\nPROMPT:\n${c.prompt || ""}`;
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `creative-${(c.headline || "untitled").slice(0, 30).replace(/\s+/g, "-")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    if (c.image_url) {
+      window.open(c.image_url, "_blank");
+    }
+    toast.success("Creative downloaded");
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from("ad_creatives").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Creative deleted");
+      qc.invalidateQueries({ queryKey: ["ad_creatives"] });
+    } catch (e: any) {
+      toast.error(e.message || "Delete failed");
+    }
   };
 
   const toggleCompare = (id: string) => {
@@ -139,8 +166,8 @@ const AdCreatives = () => {
                   <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{c.body_copy}</p>
                   {c.prompt && <p className="text-[10px] text-muted-foreground/50 mb-2 line-clamp-1">Prompt: {c.prompt}</p>}
                   <div className="flex gap-1">
-                    <Button size="sm" variant="outline" className="text-xs"><Download className="h-3 w-3" /></Button>
-                    <Button size="sm" variant="outline" className="text-xs text-destructive"><Trash2 className="h-3 w-3" /></Button>
+                    <Button size="sm" variant="outline" className="text-xs" onClick={(e) => { e.stopPropagation(); handleDownload(c); }}><Download className="h-3 w-3" /></Button>
+                    <Button size="sm" variant="outline" className="text-xs text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}><Trash2 className="h-3 w-3" /></Button>
                   </div>
                 </CardContent>
               </Card>
