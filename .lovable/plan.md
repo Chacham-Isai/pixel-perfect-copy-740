@@ -1,112 +1,72 @@
 
 
-# Halevai.ai Phase 2 Mega Upgrade — Implementation Plan
+# Halevai Phase 3: Production-Ready Polish
 
-This is a very large scope covering 5 major sections. Following the prompt's recommended implementation order, here's the plan broken into deployable rounds.
-
----
-
-## Round 1: UX Polish & Foundation (Section 5)
-
-### Database Changes
-- Add columns to `campaigns`: `external_id`, `external_url`, `posted_at`, `platform_status`, `last_synced_at`
-- Add columns to `business_config`: `hide_halevai_branding`, `custom_domain`, `email_from_name`, `email_reply_to`
-
-### New Files
-- `src/lib/permissions.ts` — Role permission matrix with `hasPermission(role, action)` function
-- `src/lib/formatters.ts` — Shared utilities: `normalizePhone()`, `formatPhone()`, `formatCurrency()`, `formatTimeAgo()`
-- `src/hooks/usePageTitle.ts` — Sets `document.title` per page
-
-### Modified Files (UX fixes across all pages)
-- **Every data page** — Add proper loading skeletons (matching content shape), empty states with icon + headline + CTA button, and error states with retry
-- **All forms** — Add Zod validation, red asterisks on required fields, disable submit buttons during mutations
-- **Caregiver add dialog** — Add duplicate phone/email detection warning
-- **Destructive actions** — Add AlertDialog confirmations for deletes
-- **Search inputs** — Add 300ms debounce (Caregivers, Campaigns, Inbox)
-- **Caregivers kanban** — Add status transition validation (prevent invalid moves)
-- **Toast consistency** — Standardize all toast messages
-
-### Pages to audit for empty/loading/error states:
-Dashboard, Caregivers, Campaigns (all 8 tabs), Landing Pages, Content Calendar, Ad Creatives, Talent Sourcing (5 tabs), Competitors, Reviews, Recommendations, Enrollment, Automations, Briefing, Playbooks
+This document covers 7 major workstreams from the uploaded Phase 3 prompt. Given the scope, I recommend tackling them in priority order across multiple implementation rounds.
 
 ---
 
-## Round 2: Inbound Webhooks & Inbox (Section 1)
+## Section 1: Cron Trigger Edge Function (Highest Priority)
 
-### Database Changes (migration)
-- Create `inbound_messages` table with agency_id, channel, from_contact, to_contact, subject, body, external_id, caregiver_id, sourced_candidate_id, matched, read, metadata, created_at
-- Create `conversation_threads` table with agency_id, contact_phone, contact_email, contact_name, caregiver_id, sourced_candidate_id, channel, last_message_at, last_message_preview, unread_count, status, created_at
-- RLS policies for both tables
-- Enable Supabase Realtime on `inbound_messages`
+Lovable Cloud does not expose pg_cron directly. We will use the fallback approach:
 
-### New Edge Function
-- `webhook-inbound` — Public endpoint accepting Twilio SMS webhooks and SendGrid Inbound Parse webhooks. Detects channel, matches to agency via `api_keys`, matches to caregiver/candidate, inserts to `inbound_messages`, creates notification, auto-detects keywords (YES/STOP/UNSUBSCRIBE), updates conversation threads
+- **Create `supabase/functions/cron-trigger/index.ts`** — a dispatcher edge function that accepts `?job=automations|briefing|sequences|scoring` with `x-cron-secret` header verification
+- **Add config.toml entry** for `cron-trigger`
+- **Add "Automation Schedule" card** to the top of `/automations` page showing the 4 scheduled jobs, their recommended cadence, last run timestamp (from `agent_activity_log`), and a setup guide with the cron URLs for external services like cron-job.org
 
-### New Page
-- `src/pages/Inbox.tsx` — Two-panel messaging inbox (thread list + conversation view) with real-time updates, compose bar, channel toggle, contact info, and "Link to Caregiver" for unmatched contacts
+## Section 2: White-Label Completion
 
-### Modified Files
-- `src/App.tsx` — Add `/inbox` route
-- `src/components/AppSidebar.tsx` — Add "Inbox" nav item under CORE with unread badge
-- `src/hooks/useAgencyData.ts` — Add `useInboundMessages()`, `useConversationThreads()`, `useThreadMessages()`, `useUnreadCount()` hooks
-- `src/pages/Caregivers.tsx` — Add "Messages" section in caregiver detail sheet
-- `src/components/IntegrationsTab.tsx` — Add webhook URL display + copy button for Twilio and SendGrid setup
-- `supabase/config.toml` — Add `webhook-inbound` function config
+- **PublicLandingPage.tsx audit** — replace any hardcoded Halevai branding with dynamic `business_config` values (logo, colors, phone, footer, meta tags)
+- **send-message edge function** — update email HTML template to pull agency branding from `business_config`
+- **Settings → Branding tab** — verify/add all fields (logo upload, colors, tagline, social URLs, email sender name, hide branding toggle) with live preview card
 
----
+## Section 3: Sequence Builder Visual Polish
 
-## Round 3: Advanced Sequence Branching (Section 2)
+- **Node styling** — color-coded borders (cyan=message, purple=condition, amber=action, gray=wait) with appropriate lucide icons
+- **Node editor panel** — side panel/modal with channel select, merge fields, condition config, action config
+- **Toolbar** — add node buttons, AI Generate, templates dropdown, save/activate/pause/delete
+- **Integration** — verify builder opens from Campaigns → Sequences and Talent Sourcing → Sequences
 
-### Database Changes
-- Add columns to `sequence_steps`: `step_type`, `condition_type`, `condition_value`, `true_next_step_id`, `false_next_step_id`, `action_type`, `action_config`
+## Section 4: Ad Metrics Sync
 
-### Modified Edge Function
-- `run-automations` — Update sequence processing to handle condition nodes (check replied/no_reply/keyword_match/status_changed/score thresholds), action nodes (update_status, create_notification, enroll/remove from sequence, update_score), and wait nodes
+- **New edge function `sync-ad-metrics/index.ts`** — pulls Facebook/Google Ads metrics back into `campaigns` table
+- **UI sync button** on campaign cards with `external_id`
+- **Add `sync-ads` case** to cron-trigger
+- **Performance tab** — "Last Synced" indicator and "Sync All" button
 
-### New Component
-- `src/components/SequenceBuilder.tsx` — Visual flow builder with canvas area showing connected nodes (message/condition/action/wait), editor side panel, toolbar with node type buttons + AI Generate, and 3 pre-built smart sequence templates (Smart Nurture, Hot Lead Fast Track, Competitor Poach)
+## Section 5: UX Hardening (Large Scope)
 
-### Modified Files
-- `src/pages/Campaigns.tsx` — Replace SequencesTab inline editor with new SequenceBuilder
-- `src/pages/TalentSourcing.tsx` — Same SequenceBuilder in Sequences tab
-- `src/hooks/useAgencyData.ts` — Add `useSequenceStepsByFlow()` and `useSaveSequenceFlow()` hooks
+- **5A: Loading states audit** — verify `states.tsx` skeletons on all 15+ pages
+- **5B: Empty states audit** — meaningful empty states with CTAs on every data section
+- **5C: Form validation** — Zod inline errors, required asterisks, submit button states, destructive action confirmations via AlertDialog
+- **5D: Breadcrumbs** — add to caregiver detail, campaign builder, landing page detail, sequence builder, settings sub-tabs
+- **5E: Responsive/mobile** — table card layouts, kanban scroll, touch targets
+- **5F: Formatters audit** — ensure `formatters.ts` utilities used consistently
+- **5G: Pagination** — add `.range()` pagination to caregivers, message_log, inbound_messages, sourced_candidates
+- **5H: Optimistic updates** — automation toggle, kanban drag, notification read, inbox read
+- **5I: Command palette** — wire `Cmd+K` to `command.tsx` with cross-entity search in `AppLayout.tsx`
 
----
+## Section 6: Halevai Chat Context
 
-## Round 4: White-Label & Expanded Roles (Section 4)
+- **Add missing context queries** to `halevai-chat/index.ts`: `conversation_threads` unread count, `inbound_messages` recent replies, `sequence_enrollments` active/completion stats
+- **Update system prompt** with these new data sections
 
-### Database Changes
-- Add `operations_manager`, `intake_coordinator` values to `agency_role` enum (note: `viewer` already exists based on code)
-- Update RLS policies to enforce role-based write restrictions
+## Section 7: Dashboard Polish
 
-### Modified Files
-- `src/lib/permissions.ts` — Already created in Round 1, now fully enforced
-- `src/hooks/useAuth.tsx` — Expose full `agencyRole` for permission checks
-- `src/components/TeamMembers.tsx` — Upgrade: avatar/initials, role badges, invite flow with email + role select, role editing (owner only), member removal with confirmation, transfer ownership
-- `src/components/IntegrationsTab.tsx` — Hide for non-admin roles
-- `src/pages/Settings.tsx` — Add branding fields (hide_halevai_branding toggle, email_from_name, email_reply_to, custom_domain)
-- `src/pages/PublicLandingPage.tsx` — Verify full white-label: agency colors, logo, name throughout; conditionally hide "Built with Halevai.ai"
-- All pages with write actions — Wrap in permission checks, show "View Only" badge for viewer role
+- **Integration status row** — small icons with green/gray dots from `api_keys`, click navigates to Settings, gated by `manage_api_keys` permission
+- **Verify live data wiring** — funnel, KPI cards, recruitment agent stats, activity feed all pulling real data
+- **Quick launch actions** — verify all 6 buttons work and navigate correctly
 
 ---
 
-## Round 5: Ad Platform API Integration (Section 3)
+## Recommended Implementation Order
 
-### Modified Files
-- `src/components/IntegrationsTab.tsx` — Add Facebook, Google Ads, Indeed API key fields
-- `supabase/functions/post-to-ads/index.ts` — Upgrade to use per-agency `api_keys` table for Facebook/Google/Indeed credentials (instead of env vars), implement real Facebook Marketing API posting, Google Ads REST API posting, Indeed Sponsored Jobs API
-- `src/pages/Campaigns.tsx` — Add platform status indicators on campaign cards, "Post Now" button, "View on Platform" link, "Sync Stats" button
-- `src/pages/CampaignBuilder.tsx` — Add "Create & Post" button in Step 4 with per-platform result indicators
+Given this is too large for a single pass, I recommend splitting into rounds:
 
----
+1. **Round 1:** Section 1 (cron-trigger) + Section 7 (dashboard polish) + Section 6 (chat context)
+2. **Round 2:** Section 5A-5C (loading/empty/validation) + Section 5I (command palette)
+3. **Round 3:** Section 2 (white-label) + Section 3 (sequence builder)
+4. **Round 4:** Section 5D-5H (breadcrumbs, mobile, pagination, optimistic) + Section 4 (ad sync)
 
-## Technical Notes
-
-- All new tables use `agency_id` column with standard RLS pattern
-- No new npm dependencies needed (uses existing @dnd-kit, shadcn/ui, lucide-react)
-- Edge functions follow existing pattern: Deno, `verify_jwt = false`, service_role_key for DB writes
-- All hooks follow existing `useAgencyQuery` pattern in `useAgencyData.ts`
-- Design system unchanged: dark theme, cyan primary, purple accent, Space Grotesk + IBM Plex Mono
-
-Each round is independently deployable. Approve to begin with Round 1 (UX Polish).
+Which round should I start with, or would you like me to begin with Round 1?
 
