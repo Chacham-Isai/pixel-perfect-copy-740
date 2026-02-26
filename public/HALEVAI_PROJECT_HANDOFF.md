@@ -27,7 +27,7 @@ The name "Halevai" (הלוואי) is Hebrew for "if only" / "hopefully" — refl
 | **Backend** | Lovable Cloud (Supabase under the hood) |
 | **Database** | PostgreSQL via Supabase |
 | **Auth** | Supabase Auth (email/password) |
-| **Edge Functions** | Deno (Supabase Edge Functions) — 11 deployed |
+| **Edge Functions** | Deno (Supabase Edge Functions) — 15 deployed |
 | **AI Models** | Google Gemini 3 Flash Preview (text), Gemini 2.5 Flash Image (images) via Lovable AI Gateway |
 | **Web Scraping** | Firecrawl (connected via Lovable connector) |
 | **Drag & Drop** | @dnd-kit/core + @dnd-kit/sortable |
@@ -48,7 +48,7 @@ The name "Halevai" (הלוואי) is Hebrew for "if only" / "hopefully" — refl
 
 ---
 
-## 3. Database Schema (29 Tables)
+## 3. Database Schema (30+ Tables)
 
 ### Core Agency Tables
 | Table | Purpose |
@@ -59,7 +59,7 @@ The name "Halevai" (הלוואי) is Hebrew for "if only" / "hopefully" — refl
 | `business_config` | Branding: colors, logo, tagline, social URLs. One per agency |
 | `onboarding` | Onboarding wizard state & AI strategy output |
 | `locations` | Office locations with service counties |
-| `notifications` | In-app notification queue |
+| `notifications` | In-app notification queue (realtime enabled) |
 
 ### Caregiver Pipeline
 | Table | Purpose |
@@ -112,6 +112,13 @@ The name "Halevai" (הלוואי) is Hebrew for "if only" / "hopefully" — refl
 | `activity_log` | System-wide audit trail |
 | `automation_configs` | Toggle-able automation rules |
 
+### Messaging & Integrations
+| Table | Purpose |
+|-------|---------|
+| `api_keys` | Per-agency integration credentials (Twilio, SendGrid, Clay, GHL, Bland AI). Encrypted key storage with connection status |
+| `message_log` | Full message audit trail: channel (sms/email/in_app), status, external_id, template, related entities |
+| `agent_activity_log` | AI agent execution log: action, agent_type, success/error, entity references |
+
 ### RLS Pattern
 All tables use Row Level Security. Standard pattern:
 ```sql
@@ -124,6 +131,8 @@ Exceptions:
 - `landing_page_events` allows public INSERT (for anonymous page view tracking) with field validation
 - `agencies` INSERT scoped to `TO authenticated` role only (for onboarding)
 - `growth_playbooks` allows SELECT when `agency_id IS NULL` (shared system templates)
+- `api_keys` restricted to owner/admin roles only
+- `message_log` INSERT restricted to owner/admin; SELECT for all members
 
 ### Key Enums
 - `lead_status`: new → contacted → intake_started → enrollment_pending → authorized → active → inactive → rejected
@@ -133,7 +142,7 @@ Exceptions:
 
 ---
 
-## 4. Edge Functions (11 Deployed)
+## 4. Edge Functions (15 Deployed)
 
 All use `verify_jwt = false` in config.toml with manual auth validation inside the function.
 
@@ -194,18 +203,51 @@ All use `verify_jwt = false` in config.toml with manual auth validation inside t
 
 ### `run-automations`
 - **Purpose:** Execute all active automation rules for an agency
-- **Automations:**
+- **Automations (27 supported keys):**
   - `lead_scoring` — Re-score unscored caregivers
   - `follow_up_reminders` — Flag stale contacts (3+ days), create notifications
   - `performance_alerts` — Campaign spend threshold alerts
   - `stale_enrollment_alerts` — Enrollment stuck >14 days alerts
+  - `auto_welcome_sms` — Automated welcome message on new caregiver
+  - `auto_source_candidates` — Trigger candidate sourcing
+  - `auto_outreach_high_match` — Auto-outreach for high match scores
+  - `auto_screen_responded` — Auto-screen candidates who responded
+  - `auto_review_request` — Automated review solicitation
+  - `background_check_reminder` — Background check follow-up
+  - `auth_expiry_alert` — Authorization expiry warnings
+  - Plus 16 more keys for comprehensive automation coverage
 - **Multi-agency:** Supports `agencyId: "all"` for cron-triggered batch processing
+- **Error isolation:** Each automation runs independently; failures don't block others
 
 ### `generate-briefing`
 - **Purpose:** Generate daily performance briefing for an agency
 - **Output:** Pipeline stats, campaign performance, action items, wins
 - **Multi-agency:** Supports `agencyId: "all"` for cron-triggered batch processing
 - **Deduplication:** Skips if briefing already exists for today
+
+### `send-message`
+- **Purpose:** Unified messaging gateway for SMS, email, and in-app notifications
+- **Channels:**
+  - `sms` — Via Twilio (account SID, auth token, phone number from `api_keys`)
+  - `email` — Via SendGrid with branded HTML templates (business_config branding)
+  - `in_app` — Direct insert into `notifications` table
+- **Features:** Branded email HTML builder, message logging to `message_log`, graceful fallback when provider not configured (mock mode)
+- **Output:** `{ success, message_id, status, mock, error }`
+
+### `source-candidates`
+- **Purpose:** AI-powered candidate sourcing and enrichment
+- **Integration:** Uses Clay API for candidate discovery
+- **Output:** Enriched candidate profiles saved to `sourced_candidates`
+
+### `trigger-outreach`
+- **Purpose:** Push candidates into outreach workflows
+- **Integration:** GoHighLevel (GHL) API for automated sequences
+- **Output:** Updated outreach status on candidates
+
+### `ai-phone-screen`
+- **Purpose:** AI-powered phone screening via Bland AI
+- **Features:** Automated screening calls, transcript capture, AI scoring
+- **Output:** Phone screen results with `ai_score`, `ai_summary`, `ai_recommendation`
 
 ---
 
@@ -343,10 +385,12 @@ SYSTEM
 - Stuck enrollment alerts (>30 days)
 
 #### Talent Sourcing (`/talent-sourcing`)
+- 5 tabs: Campaigns, Candidates, Agent Activity, Sequences, Phone Screening
 - Sourcing campaign management (create, toggle active/paused)
 - Candidate cards with match scores
 - Outreach status tracking
 - "Promote to Pipeline" action (creates caregiver from candidate)
+- AI phone screening with transcript and scoring display
 
 #### Caregivers (`/caregivers`)
 - Kanban-style pipeline view by status (New, Contacted, Intake Started, Enrollment Pending, Authorized, Active)
@@ -355,6 +399,7 @@ SYSTEM
 - Export CSV
 - Detail sheet with: contact info, lead score/tier, patient info, enrollment timeline, **Suggested Offer Rate** (from pay rate intel), activity log
 - Drag cards between columns to update status
+- Compose SMS/Email dialog with message logging
 
 #### Automations (`/automations`)
 - Toggle-able automation cards with descriptions
@@ -365,7 +410,16 @@ SYSTEM
 #### Settings (`/settings`)
 - Agency Profile tab (name, email, phone, website, states)
 - Branding tab (colors, logo, tagline, social URLs)
+- **Integrations tab** — API key management for:
+  - Twilio (SMS): Account SID, Auth Token, Phone Number
+  - SendGrid (Email): API Key
+  - Clay (Candidate Sourcing): API Key
+  - GoHighLevel (CRM & Outreach): API Key, Sub-Account ID
+  - Bland AI (Phone Screening): API Key
+  - Per-key status indicators: Connected / Saved (untested) / Not configured
+  - Show/hide toggle for sensitive values
 - Notifications tab
+- Team Members tab
 
 ---
 
@@ -399,6 +453,35 @@ Lovable AI Gateway (Gemini models)
 Response → DB persist → Query invalidation → UI update
 ```
 
+### Messaging Flow
+```
+ComposeMessageDialog → supabase.functions.invoke("send-message")
+    ↓
+send-message Edge Function
+    ├── SMS → Twilio API (api_keys lookup)
+    ├── Email → SendGrid API (branded HTML, api_keys lookup)
+    └── In-App → notifications table insert
+    ↓
+message_log INSERT (audit trail)
+    ↓
+Response → UI toast
+```
+
+### Talent Sourcing Flow
+```
+Source Candidates → source-candidates Edge Function → Clay API
+    ↓
+sourced_candidates table
+    ↓
+Trigger Outreach → trigger-outreach Edge Function → GoHighLevel API
+    ↓
+AI Phone Screen → ai-phone-screen Edge Function → Bland AI
+    ↓
+phone_screens table (transcript, score, recommendation)
+    ↓
+Promote to Pipeline → caregivers table
+```
+
 ### Automated Flow (Cron)
 ```
 pg_cron (7:00 AM UTC daily)
@@ -430,25 +513,30 @@ src/
 │   ├── ui/                  # shadcn/ui components (50+ files)
 │   ├── AppLayout.tsx        # Main layout with sidebar
 │   ├── AppSidebar.tsx       # Navigation sidebar
-│   ├── ComposeMessageDialog.tsx  # Message composition
+│   ├── ComposeMessageDialog.tsx  # SMS/Email message composition
+│   ├── IntegrationsTab.tsx  # API key management for integrations
 │   ├── NavLink.tsx          # Active-aware nav link
-│   └── ProtectedRoute.tsx   # Auth guard
+│   ├── NotificationBell.tsx # Real-time notification indicator
+│   ├── ProtectedRoute.tsx   # Auth guard
+│   └── TeamMembers.tsx      # Team member management
 ├── hooks/
-│   ├── useAuth.tsx          # Auth context (user, agencyId, signIn, signOut)
-│   ├── useAgencyData.ts     # All data hooks (25+ exports)
-│   └── use-mobile.tsx       # Mobile breakpoint detection
+│   ├── useAuth.tsx          # Auth context (user, agencyId, role, signIn, signOut)
+│   ├── useAgencyData.ts     # All data hooks (30+ exports)
+│   ├── use-mobile.tsx       # Mobile breakpoint detection
+│   └── use-toast.ts         # Toast notification hook
 ├── integrations/
 │   └── supabase/
 │       ├── client.ts        # Auto-generated Supabase client
 │       └── types.ts         # Auto-generated TypeScript types
-├── pages/                   # 22 page components
+├── pages/                   # 24 page components
 ├── lib/utils.ts             # cn() utility
 ├── index.css                # Design tokens & custom styles
 └── main.tsx                 # Entry point
 
 supabase/
-├── config.toml              # Edge function configuration (11 functions)
+├── config.toml              # Edge function configuration (15 functions)
 ├── functions/
+│   ├── ai-phone-screen/     # AI phone screening via Bland AI
 │   ├── analyze-pay-rates/   # AI + Firecrawl pay rate analysis
 │   ├── campaign-optimizer/  # Multi-mode marketing AI
 │   ├── discover-sources/    # Referral source discovery
@@ -458,8 +546,11 @@ supabase/
 │   ├── generate-landing-content/  # Landing page AI
 │   ├── halevai-chat/        # Conversational AI
 │   ├── post-to-ads/         # Platform posting
-│   ├── run-automations/     # Automation execution engine
-│   └── score-leads/         # Lead scoring
+│   ├── run-automations/     # Automation execution engine (27 keys)
+│   ├── score-leads/         # Lead scoring
+│   ├── send-message/        # Unified messaging (SMS/email/in-app)
+│   ├── source-candidates/   # Clay-powered candidate sourcing
+│   └── trigger-outreach/    # GHL outreach automation
 └── migrations/              # Database migrations (read-only)
 ```
 
@@ -475,10 +566,15 @@ supabase/
 
 ## 11. External Integrations
 
-| Integration | Purpose | Auth |
-|-------------|---------|------|
+| Integration | Purpose | Auth Method |
+|-------------|---------|-------------|
 | **Firecrawl** | Web scraping for competitor pay rates & job postings | API key via Lovable connector (`FIRECRAWL_API_KEY`) |
 | **Lovable AI Gateway** | AI model access (Gemini family) | `LOVABLE_API_KEY` (auto-provisioned) |
+| **Twilio** | SMS messaging for caregiver outreach | Per-agency API keys in `api_keys` table |
+| **SendGrid** | Branded email messaging | Per-agency API key in `api_keys` table |
+| **Clay** | Candidate sourcing and enrichment | Per-agency API key in `api_keys` table |
+| **GoHighLevel** | CRM workflows and outreach sequences | Per-agency API key + sub-account ID in `api_keys` table |
+| **Bland AI** | AI phone screening calls | Per-agency API key in `api_keys` table |
 
 ---
 
@@ -500,30 +596,35 @@ supabase/
 ## 13. Security Configuration
 
 ### RLS Policies
-- All 29 tables have Row Level Security enabled
+- All tables have Row Level Security enabled
 - Standard pattern: agency membership check via `agency_members` join
 - `agencies` INSERT restricted to `TO authenticated` role only
-- `landing_page_events` INSERT open with NOT NULL field validation
+- `landing_page_events` INSERT open with NOT NULL field validation + rate limiting trigger (60/min)
 - `profiles` restricted to own user only (`user_id = auth.uid()`)
+- `api_keys` restricted to owner/admin roles for all operations
+- `message_log` INSERT restricted to owner/admin; SELECT for all members
 
 ### Auth Configuration
 - Email verification required (auto-confirm disabled)
 - Anonymous signups disabled
 - Password-based authentication only
 
-### Database Functions
+### Database Functions (8 deployed)
 - `get_user_agency_id()` — Returns current user's agency ID (SECURITY DEFINER)
 - `is_agency_member(user_id, agency_id)` — Membership check
 - `has_agency_role(user_id, agency_id, role)` — Role-based check
+- `is_owner_or_admin(user_id, agency_id)` — Admin/owner check for sensitive operations
+- `get_user_agency_role(user_id, agency_id)` — Returns user's role
 - `handle_new_user()` — Auto-creates profile on signup (trigger)
 - `update_updated_at_column()` — Timestamp trigger
+- `check_landing_page_event_rate_limit()` — Rate limit trigger (60 events/min per page)
 
 ---
 
 ## 14. What's Complete ✅
 
-- [x] All 29 database tables with RLS policies
-- [x] 11 edge functions deployed and functional
+- [x] All 30+ database tables with RLS policies
+- [x] 15 edge functions deployed and functional
 - [x] Full authentication flow with email verification
 - [x] 5-step onboarding wizard with AI strategy generation
 - [x] Dashboard with funnel visualization and KPIs
@@ -540,31 +641,43 @@ supabase/
 - [x] Campaign package management
 - [x] 10 pre-built growth playbooks with AI execution
 - [x] Talent sourcing with promote-to-pipeline
+- [x] AI phone screening (Bland AI integration)
+- [x] Candidate outreach automation (GoHighLevel)
 - [x] Enrollment tracker with stage advancement
 - [x] Settings with branding configuration
+- [x] **Integrations tab** — Twilio, SendGrid, Clay, GHL, Bland AI key management
 - [x] Competitor intelligence tracking
 - [x] **AI-powered competitive pay rate analysis** (Firecrawl + Gemini)
 - [x] **Pay rate intelligence on Dashboard, Competitors, and Caregiver detail**
-- [x] **Automated daily automations** (pg_cron at 7:00 AM UTC)
+- [x] **Unified messaging gateway** (send-message edge function: SMS/email/in-app)
+- [x] **Branded email templates** using business_config
+- [x] **Message log** audit trail for all outbound communications
+- [x] **Compose Message dialog** for SMS/email from caregiver profile
+- [x] **Automated daily automations** (pg_cron at 7:00 AM UTC — 27 automation keys)
 - [x] **Automated daily briefing generation** (pg_cron at 7:05 AM UTC)
 - [x] **Lead scoring automation** with tier assignment (HOT/WARM/COLD)
 - [x] **Follow-up reminder automation** (3+ day stale contacts)
 - [x] **Performance alert automation** (spend threshold monitoring)
 - [x] **Stale enrollment alert automation** (14+ day stuck enrollments)
-- [x] **Security audit passed** — tightened RLS policies, disabled anon signups
+- [x] **Auto welcome SMS, review request, background check reminders**
+- [x] **Auth expiry alerts** for upcoming authorization expirations
+- [x] **Agent activity logging** for all automation actions
+- [x] **Notification bell** with real-time updates
+- [x] **Team members** management component
+- [x] **Security audit passed** — tightened RLS policies, disabled anon signups, rate limiting
 
 ## 15. Potential Future Enhancements
 
 - [ ] Canvas compositing for logo overlays on ad images
 - [ ] Direct API integration with ad platforms (Facebook Ads, Google Ads)
-- [ ] SMS/email sending via Twilio or SendGrid for sequences
-- [ ] Real-time notifications via Supabase Realtime
+- [ ] Real-time chat with caregivers via Twilio conversations
 - [ ] Multi-language UI (Hebrew, Spanish, Creole)
 - [ ] Role-based permissions (viewer, editor, admin, owner) with column-level RLS
 - [ ] Billing & subscription management
 - [ ] White-label / agency branding on public pages
-- [ ] Rate limiting on landing page event insertion
-- [ ] Leaked password protection (platform-level setting)
+- [ ] Webhook endpoints for inbound SMS/email replies
+- [ ] Advanced sequence branching (if/then logic based on response)
+- [ ] Caregiver mobile app or portal
 
 ---
 
@@ -596,4 +709,11 @@ supabase/
 | `useLandingPageEvents()` | `landing_page_events` | All events |
 | `useReviewRequests()` | `review_requests` | All review requests |
 | `usePayRateIntel()` | `pay_rate_intel` | Latest analysis |
-| `useToggleAutomation()` | `automation_configs` | Mutation |
+| `useAgencyMembers()` | `agency_members` | All agency members |
+| `useApiKeys()` | `api_keys` | All integration keys |
+| `useMessageLog(limit)` | `message_log` | Recent messages |
+| `useAgentActivityLog()` | `agent_activity_log` | Recent 50 agent actions |
+| `usePhoneScreens()` | `phone_screens` | All phone screens |
+| `useToggleAutomation()` | `automation_configs` | Mutation: toggle active |
+| `useSaveApiKey()` | `api_keys` | Mutation: upsert key |
+| `useTestConnection()` | — | Mutation: test integration |
