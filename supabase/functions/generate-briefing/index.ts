@@ -16,23 +16,33 @@ Deno.serve(async (req) => {
     const { agencyId, userId } = await req.json();
     if (!agencyId) throw new Error("agencyId required");
 
+    // If "all", process every agency
+    let agencyIds: string[] = [];
+    if (agencyId === "all") {
+      const { data: agencies } = await sb.from("agencies").select("id");
+      agencyIds = (agencies || []).map((a: any) => a.id);
+    } else {
+      agencyIds = [agencyId];
+    }
+
+    const results: any[] = [];
+    for (const aid of agencyIds) {
     const today = new Date().toISOString().slice(0, 10);
 
     // Check if briefing already exists for today
     const { data: existing } = await sb.from("daily_briefings")
-      .select("id").eq("agency_id", agencyId).eq("date", today).maybeSingle();
+      .select("id").eq("agency_id", aid).eq("date", today).maybeSingle();
     if (existing) {
-      return new Response(JSON.stringify({ message: "Briefing already exists", id: existing.id }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      results.push({ agency: aid, message: "already exists", id: existing.id });
+      continue;
     }
 
     // Gather data
     const [cgRes, campRes, revRes, srcRes] = await Promise.all([
-      sb.from("caregivers").select("*").eq("agency_id", agencyId),
-      sb.from("campaigns").select("*").eq("agency_id", agencyId).eq("status", "active"),
-      sb.from("reviews").select("*").eq("agency_id", agencyId),
-      sb.from("sourced_candidates").select("*").eq("agency_id", agencyId),
+      sb.from("caregivers").select("*").eq("agency_id", aid),
+      sb.from("campaigns").select("*").eq("agency_id", aid).eq("status", "active"),
+      sb.from("reviews").select("*").eq("agency_id", aid),
+      sb.from("sourced_candidates").select("*").eq("agency_id", aid),
     ]);
 
     const caregivers = cgRes.data || [];
@@ -82,15 +92,17 @@ Deno.serve(async (req) => {
     };
 
     const { data: briefing, error } = await sb.from("daily_briefings").insert({
-      agency_id: agencyId,
+      agency_id: aid,
       user_id: userId || null,
       date: today,
       content,
     }).select("id").single();
 
-    if (error) throw error;
+    if (error) { results.push({ agency: aid, error: error.message }); continue; }
+    results.push({ agency: aid, id: briefing.id });
+    } // end agency loop
 
-    return new Response(JSON.stringify({ id: briefing.id, content }), {
+    return new Response(JSON.stringify({ results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
