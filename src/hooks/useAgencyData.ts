@@ -70,7 +70,22 @@ export const useSourcingCampaigns = () => useAgencyQuery<SourcingCampaign>("sour
 export const useSourcedCandidates = () => useAgencyQuery<SourcedCandidate>("sourced_candidates", "sourced_candidates", { orderBy: "created_at" });
 export const useAutomations = () => useAgencyQuery<AutomationConfig>("automations", "automation_configs");
 export const useRecommendations = () => useAgencyQuery<Recommendation>("recommendations", "halevai_recommendations", { orderBy: "created_at" });
-export const usePlaybooks = () => useAgencyQuery<Playbook>("playbooks", "growth_playbooks");
+export const usePlaybooks = () => {
+  const { agencyId } = useAuth();
+  return useQuery({
+    queryKey: ["playbooks", agencyId],
+    queryFn: async () => {
+      if (!agencyId) return [];
+      const { data, error } = await supabase
+        .from("growth_playbooks")
+        .select("*")
+        .or(`agency_id.eq.${agencyId},agency_id.is.null`);
+      if (error) throw error;
+      return (data || []) as Playbook[];
+    },
+    enabled: !!agencyId,
+  });
+};
 export const useActivityLog = () => useAgencyQuery<ActivityLog>("activity_log", "activity_log", { orderBy: "created_at", limit: 20 });
 export const useAdCreatives = () => useAgencyQuery<AdCreative>("ad_creatives", "ad_creatives", { orderBy: "created_at" });
 export const useBusinessConfig = () => {
