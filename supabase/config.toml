@@ -32,3 +32,15 @@ verify_jwt = false
 
 [functions.analyze-pay-rates]
 verify_jwt = false
+
+[functions.send-message]
+verify_jwt = false
+
+[functions.source-candidates]
+verify_jwt = false
+
+[functions.trigger-outreach]
+verify_jwt = false
+
+[functions.ai-phone-screen]
+verify_jwt = false
