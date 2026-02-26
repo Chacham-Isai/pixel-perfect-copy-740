@@ -234,8 +234,10 @@ const Campaigns = () => {
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [dateRange, setDateRange] = useState("30d");
+  const [stateFilter, setStateFilter] = useState<string[]>(["OR", "MI"]);
+  const AVAILABLE_STATES = ["OR", "MI"];
 
-  const all = campaigns || [];
+  const all = (campaigns || []).filter(c => stateFilter.length === 0 || stateFilter.includes(c.state || ""));
   const active = all.filter(c => c.status === "active");
   const totalSpend = active.reduce((s, c) => s + (c.spend || 0), 0);
   const totalClicks = active.reduce((s, c) => s + (c.clicks || 0), 0);
@@ -320,6 +322,16 @@ const Campaigns = () => {
                 <div className="font-data text-xl font-bold text-foreground">{k.value}</div>
               </CardContent>
             </Card>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">State:</span>
+          {AVAILABLE_STATES.map(st => (
+            <Button key={st} size="sm" variant={stateFilter.includes(st) ? "default" : "outline"} className="text-xs h-7"
+              onClick={() => setStateFilter(prev => prev.includes(st) ? prev.filter(s => s !== st) : [...prev, st])}>
+              {st}
+            </Button>
           ))}
         </div>
 
