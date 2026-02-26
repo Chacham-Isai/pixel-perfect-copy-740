@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Inbox as InboxIcon, MessageSquare, Mail, Send, Search, User, Phone, AtSign, ExternalLink } from "lucide-react";
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import { useConversationThreads, useThreadMessages, useUnreadCount } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -134,6 +135,13 @@ const Inbox = () => {
   return (
     <AppLayout>
       <div className="space-y-4">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem><BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem><BreadcrumbPage>Inbox</BreadcrumbPage></BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <div className="flex items-center gap-3">
           <InboxIcon className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold text-foreground">Inbox</h1>
@@ -142,9 +150,9 @@ const Inbox = () => {
         {isError ? (
           <ErrorState message="Unable to load conversations." onRetry={refetch} />
         ) : (
-          <div className="flex gap-4 h-[calc(100vh-12rem)]">
+          <div className="flex flex-col md:flex-row gap-4 h-[calc(100vh-14rem)]">
             {/* Left panel: Thread list */}
-            <div className="w-[35%] flex flex-col border border-border rounded-lg bg-card overflow-hidden">
+            <div className="w-full md:w-[35%] flex flex-col border border-border rounded-lg bg-card overflow-hidden">
               <div className="p-3 border-b border-border space-y-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

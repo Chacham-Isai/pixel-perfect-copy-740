@@ -12,7 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Megaphone, Plus, TrendingUp, DollarSign, MousePointer, Users, Sparkles, Search, Globe, BarChart3, FileText, Zap, Star, AlertTriangle, ExternalLink, Loader2, ChevronDown, ChevronUp, Mail, MessageSquare, Trash2, Send, Facebook, Chrome } from "lucide-react";
+import { Megaphone, Plus, TrendingUp, DollarSign, MousePointer, Users, Sparkles, Search, Globe, BarChart3, FileText, Zap, Star, AlertTriangle, ExternalLink, Loader2, ChevronDown, ChevronUp, Mail, MessageSquare, Trash2, Send, Facebook, Chrome, RefreshCw } from "lucide-react";
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
+import { formatTimeAgo } from "@/lib/formatters";
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { useCampaigns, useReferralSources, useCampaignTemplates, useCampaignSequences, useSequenceEnrollments, useAgency } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
@@ -133,7 +135,7 @@ const channelIcon = (ch: string | null) => {
 };
 
 // Campaign card grid component
-const CampaignGrid = ({ campaigns, onOptimize, onPostTo }: { campaigns: any[]; onOptimize: (id: string) => void; onPostTo: (id: string, platform: string) => void }) => {
+const CampaignGrid = ({ campaigns, onOptimize, onPostTo, onSync, syncing }: { campaigns: any[]; onOptimize: (id: string) => void; onPostTo: (id: string, platform: string) => void; onSync?: (id: string) => void; syncing?: string | null }) => {
   if (campaigns.length === 0) return <p className="text-center text-muted-foreground py-8">No campaigns in this category</p>;
   return (
     <TooltipProvider>
@@ -166,10 +168,20 @@ const CampaignGrid = ({ campaigns, onOptimize, onPostTo }: { campaigns: any[]; o
                 </div>
               </div>
               {c.external_id && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                  <ExternalLink className="h-3 w-3" />
-                  <span className="font-mono truncate max-w-[120px]">{c.external_id}</span>
-                  {c.external_url && <a href={c.external_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">View</a>}
+                <div className="space-y-1 mb-1">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <ExternalLink className="h-3 w-3" />
+                    <span className="font-mono truncate max-w-[120px]">{c.external_id}</span>
+                    {c.external_url && <a href={c.external_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">View</a>}
+                    {onSync && (
+                      <Button size="sm" variant="ghost" className="h-5 px-1.5 ml-auto text-[10px]" onClick={(e) => { e.stopPropagation(); onSync(c.id); }} disabled={syncing === c.id}>
+                        <RefreshCw className={`h-3 w-3 ${syncing === c.id ? "animate-spin" : ""}`} />
+                      </Button>
+                    )}
+                  </div>
+                  {c.last_synced_at && (
+                    <span className="text-[10px] text-muted-foreground/70">Last synced: {formatTimeAgo(c.last_synced_at)}</span>
+                  )}
                 </div>
               )}
               {overTarget && (
@@ -234,6 +246,8 @@ const Campaigns = () => {
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [dateRange, setDateRange] = useState("30d");
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
   const [stateFilter, setStateFilter] = useState<string[]>(["OR", "MI"]);
   const AVAILABLE_STATES = ["OR", "MI"];
 
@@ -275,6 +289,23 @@ const Campaigns = () => {
     setOptimizing(null);
   };
 
+  const handleSyncMetrics = async (campaignId?: string) => {
+    const isAll = !campaignId;
+    if (isAll) setSyncingAll(true); else setSyncingId(campaignId);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-ad-metrics", {
+        body: { agencyId, ...(campaignId ? { campaignId } : {}) },
+      });
+      if (error) throw error;
+      toast.success(`Synced ${data?.synced || 0}/${data?.total || 0} campaigns`);
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+    } catch (e: any) {
+      toast.error(e.message || "Sync failed");
+    }
+    setSyncingId(null);
+    setSyncingAll(false);
+  };
+
   const handlePostTo = async (campaignId: string, platform: string) => {
     toast.loading(`Posting to ${platform}...`, { id: "post-to-ads" });
     try {
@@ -296,6 +327,13 @@ const Campaigns = () => {
   return (
     <AppLayout>
       <div className="space-y-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem><BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem><BreadcrumbPage>Campaign Hub</BreadcrumbPage></BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Megaphone className="h-6 w-6 text-primary" />
@@ -306,7 +344,7 @@ const Campaigns = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: "Total Spend", value: `$${totalSpend.toLocaleString()}`, icon: DollarSign },
             { label: "Total Clicks", value: totalClicks.toLocaleString(), icon: MousePointer },
@@ -348,10 +386,10 @@ const Campaigns = () => {
               <TabsTrigger value="sequences"><Zap className="h-3 w-3 mr-1" />Sequences ({(sequences || []).length})</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="recruitment"><CampaignGrid campaigns={byType("recruitment")} onOptimize={handleOptimize} onPostTo={handlePostTo} /></TabsContent>
-            <TabsContent value="marketing"><CampaignGrid campaigns={byType("marketing")} onOptimize={handleOptimize} onPostTo={handlePostTo} /></TabsContent>
-            <TabsContent value="social"><CampaignGrid campaigns={byType("social")} onOptimize={handleOptimize} onPostTo={handlePostTo} /></TabsContent>
-            <TabsContent value="community"><CampaignGrid campaigns={byType("community")} onOptimize={handleOptimize} onPostTo={handlePostTo} /></TabsContent>
+            <TabsContent value="recruitment"><CampaignGrid campaigns={byType("recruitment")} onOptimize={handleOptimize} onPostTo={handlePostTo} onSync={handleSyncMetrics} syncing={syncingId} /></TabsContent>
+            <TabsContent value="marketing"><CampaignGrid campaigns={byType("marketing")} onOptimize={handleOptimize} onPostTo={handlePostTo} onSync={handleSyncMetrics} syncing={syncingId} /></TabsContent>
+            <TabsContent value="social"><CampaignGrid campaigns={byType("social")} onOptimize={handleOptimize} onPostTo={handlePostTo} onSync={handleSyncMetrics} syncing={syncingId} /></TabsContent>
+            <TabsContent value="community"><CampaignGrid campaigns={byType("community")} onOptimize={handleOptimize} onPostTo={handlePostTo} onSync={handleSyncMetrics} syncing={syncingId} /></TabsContent>
 
             <TabsContent value="sources">
               <div className="space-y-4">
@@ -400,10 +438,15 @@ const Campaigns = () => {
 
             <TabsContent value="performance">
               <div className="space-y-6">
-                <div className="flex gap-2">
-                  {["7d", "30d", "90d"].map(d => (
-                    <Button key={d} size="sm" variant={dateRange === d ? "default" : "outline"} onClick={() => setDateRange(d)}>{d}</Button>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
+                    {["7d", "30d", "90d"].map(d => (
+                      <Button key={d} size="sm" variant={dateRange === d ? "default" : "outline"} onClick={() => setDateRange(d)}>{d}</Button>
+                    ))}
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => handleSyncMetrics()} disabled={syncingAll}>
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${syncingAll ? "animate-spin" : ""}`} /> Sync All
+                  </Button>
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <Card className="bg-card halevai-border">
@@ -435,13 +478,13 @@ const Campaigns = () => {
                   </Card>
                 </div>
                 {/* ROI Table */}
-                <Card className="bg-card halevai-border">
+                <Card className="bg-card halevai-border overflow-x-auto">
                   <CardContent className="p-0">
                     <Table>
                       <TableHeader>
                         <TableRow className="border-border">
                           <TableHead>Campaign</TableHead><TableHead>Spend</TableHead><TableHead>Conversions</TableHead>
-                          <TableHead>CPA</TableHead><TableHead>Target CPA</TableHead><TableHead>ROI Status</TableHead>
+                          <TableHead>CPA</TableHead><TableHead>Target CPA</TableHead><TableHead>ROI Status</TableHead><TableHead>Last Synced</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -458,6 +501,9 @@ const Campaigns = () => {
                               <TableCell className="font-data">${c.target_cac || "—"}</TableCell>
                               <TableCell className={`font-data font-bold ${color}`}>
                                 {ratio === 0 ? "—" : ratio < 1 ? "✓ Under Target" : ratio < 2 ? "⚠ Above Target" : "✗ Over 2× Target"}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {c.last_synced_at ? formatTimeAgo(c.last_synced_at) : "Never"}
                               </TableCell>
                             </TableRow>
                           );
