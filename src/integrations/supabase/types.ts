@@ -2116,40 +2116,61 @@ export type Database = {
       }
       sequence_steps: {
         Row: {
+          action_config: Json | null
+          action_type: string | null
           active: boolean | null
           agency_id: string
           ai_generated: boolean | null
           body: string | null
           channel: string
+          condition_type: string | null
+          condition_value: string | null
           delay_hours: number
+          false_next_step_id: string | null
           id: string
           sequence_id: string
           step_number: number
+          step_type: string | null
           subject: string | null
+          true_next_step_id: string | null
         }
         Insert: {
+          action_config?: Json | null
+          action_type?: string | null
           active?: boolean | null
           agency_id: string
           ai_generated?: boolean | null
           body?: string | null
           channel?: string
+          condition_type?: string | null
+          condition_value?: string | null
           delay_hours?: number
+          false_next_step_id?: string | null
           id?: string
           sequence_id: string
           step_number?: number
+          step_type?: string | null
           subject?: string | null
+          true_next_step_id?: string | null
         }
         Update: {
+          action_config?: Json | null
+          action_type?: string | null
           active?: boolean | null
           agency_id?: string
           ai_generated?: boolean | null
           body?: string | null
           channel?: string
+          condition_type?: string | null
+          condition_value?: string | null
           delay_hours?: number
+          false_next_step_id?: string | null
           id?: string
           sequence_id?: string
           step_number?: number
+          step_type?: string | null
           subject?: string | null
+          true_next_step_id?: string | null
         }
         Relationships: [
           {
@@ -2160,10 +2181,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sequence_steps_false_next_step_id_fkey"
+            columns: ["false_next_step_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_steps"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sequence_steps_sequence_id_fkey"
             columns: ["sequence_id"]
             isOneToOne: false
             referencedRelation: "campaign_sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_steps_true_next_step_id_fkey"
+            columns: ["true_next_step_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_steps"
             referencedColumns: ["id"]
           },
         ]
