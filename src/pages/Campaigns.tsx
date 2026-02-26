@@ -180,7 +180,16 @@ const Campaigns = () => {
                   <h2 className="text-lg font-semibold text-foreground">Referral Sources</h2>
                   <Button variant="outline" disabled={discoverLoading} onClick={async () => {
                     setDiscoverLoading(true);
-                    toast.info("Discovering sources... (coming in Phase 7)");
+                    try {
+                      const { data, error } = await supabase.functions.invoke("discover-sources", {
+                        body: { agencyId },
+                      });
+                      if (error) throw error;
+                      toast.success(`Discovered ${data?.total_saved || 0} new sources!`);
+                      window.location.reload();
+                    } catch (e: any) {
+                      toast.error(e.message || "Discovery failed");
+                    }
                     setDiscoverLoading(false);
                   }}>
                     <Search className="h-4 w-4 mr-1" /> Discover Sources
