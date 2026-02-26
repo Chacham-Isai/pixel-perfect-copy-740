@@ -109,6 +109,23 @@ export const useCampaignPackages = () => useAgencyQuery<any>("campaign_packages"
 export const useLandingPageEvents = () => useAgencyQuery<any>("landing_page_events", "landing_page_events", { orderBy: "created_at" });
 export const useReviewRequests = () => useAgencyQuery<any>("review_requests", "review_requests", { orderBy: "sent_at" });
 
+export const useAgencyMembers = () => {
+  const { agencyId } = useAuth();
+  return useQuery({
+    queryKey: ["agency_members", agencyId],
+    queryFn: async () => {
+      if (!agencyId) return [];
+      const { data, error } = await supabase
+        .from("agency_members")
+        .select("*")
+        .eq("agency_id", agencyId);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!agencyId,
+  });
+};
+
 export const usePayRateIntel = () => {
   const { agencyId } = useAuth();
   return useQuery({

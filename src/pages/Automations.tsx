@@ -14,7 +14,7 @@ import { toast } from "sonner";
 const Automations = () => {
   const { data: automations, isLoading } = useAutomations();
   const toggleMutation = useToggleAutomation();
-  const { agencyId } = useAuth();
+  const { agencyId, isViewer } = useAuth();
   const all = automations || [];
   const [running, setRunning] = useState(false);
 
@@ -47,9 +47,11 @@ const Automations = () => {
               <Badge className="bg-primary/20 text-primary font-data">
                 {all.filter(a => a.active).length} / {all.length} Active
               </Badge>
-              <Button size="sm" onClick={handleRunNow} disabled={running} className="bg-primary text-primary-foreground">
-                {running ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Running...</> : <><Play className="h-4 w-4 mr-1" />Run Now</>}
-              </Button>
+              {!isViewer && (
+                <Button size="sm" onClick={handleRunNow} disabled={running} className="bg-primary text-primary-foreground">
+                  {running ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Running...</> : <><Play className="h-4 w-4 mr-1" />Run Now</>}
+                </Button>
+              )}
             </div>
           </div>
           <p className="text-sm text-muted-foreground mt-1">Toggle automations on/off to let Halevai AI handle repetitive tasks — lead scoring, follow-ups, alerts, and more.</p>
@@ -78,6 +80,7 @@ const Automations = () => {
                   <Switch
                     checked={a.active ?? false}
                     onCheckedChange={(checked) => toggleMutation.mutate({ id: a.id, active: checked })}
+                    disabled={isViewer}
                   />
                 </CardContent>
               </Card>

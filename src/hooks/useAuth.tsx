@@ -2,11 +2,15 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 
+type AgencyRole = "owner" | "admin" | "viewer" | null;
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
   agencyId: string | null;
+  agencyRole: AgencyRole;
+  isViewer: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -15,6 +19,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   agencyId: null,
+  agencyRole: null,
+  isViewer: false,
   signOut: async () => {},
 });
 
@@ -25,45 +31,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [agencyId, setAgencyId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const [agencyRole, setAgencyRole] = useState<AgencyRole>(null);
 
   useEffect(() => {
     if (user) {
       supabase
         .from("agency_members")
-        .select("agency_id")
+        .select("agency_id, role")
         .eq("user_id", user.id)
         .limit(1)
         .single()
         .then(({ data }) => {
           setAgencyId(data?.agency_id ?? null);
+          setAgencyRole((data?.role as AgencyRole) ?? null);
         });
     } else {
       setAgencyId(null);
+      setAgencyRole(null);
     }
   }, [user]);
+
+  const isViewer = agencyRole === "viewer";
 
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, agencyId, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, agencyId, agencyRole, isViewer, signOut }}>
       {children}
     </AuthContext.Provider>
   );

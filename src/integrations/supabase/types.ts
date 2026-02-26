@@ -2025,6 +2025,10 @@ export type Database = {
     }
     Functions: {
       get_user_agency_id: { Args: never; Returns: string }
+      get_user_agency_role: {
+        Args: { _agency_id: string; _user_id: string }
+        Returns: Database["public"]["Enums"]["agency_role"]
+      }
       has_agency_role: {
         Args: {
           _agency_id: string
@@ -2037,6 +2041,10 @@ export type Database = {
         Args: { _agency_id: string; _user_id: string }
         Returns: boolean
       }
+      is_owner_or_admin: {
+        Args: { _agency_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       agency_role:
@@ -2044,6 +2052,7 @@ export type Database = {
         | "admin"
         | "operations_manager"
         | "intake_coordinator"
+        | "viewer"
       campaign_type: "recruitment" | "marketing" | "social" | "community"
       lead_source:
         | "indeed"
@@ -2197,6 +2206,7 @@ export const Constants = {
         "admin",
         "operations_manager",
         "intake_coordinator",
+        "viewer",
       ],
       campaign_type: ["recruitment", "marketing", "social", "community"],
       lead_source: [

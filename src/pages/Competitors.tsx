@@ -15,7 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 const Competitors = () => {
   const { data: competitors, isLoading } = useCompetitors();
   const { data: rateIntel, isLoading: loadingIntel } = usePayRateIntel();
-  const { agencyId } = useAuth();
+  const { agencyId, isViewer } = useAuth();
   const qc = useQueryClient();
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -53,17 +53,19 @@ const Competitors = () => {
             <Shield className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground">Competitor Intelligence</h1>
           </div>
-          <Button
-            onClick={handleAnalyze}
-            disabled={analyzing}
-            className="bg-primary text-primary-foreground"
-          >
-            {analyzing ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzing Market...</>
-            ) : (
-              <><Brain className="h-4 w-4 mr-2" />{rateIntel ? "Re-analyze Rates" : "Analyze Pay Rates"}</>
-            )}
-          </Button>
+          {!isViewer && (
+            <Button
+              onClick={handleAnalyze}
+              disabled={analyzing}
+              className="bg-primary text-primary-foreground"
+            >
+              {analyzing ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzing Market...</>
+              ) : (
+                <><Brain className="h-4 w-4 mr-2" />{rateIntel ? "Re-analyze Rates" : "Analyze Pay Rates"}</>
+              )}
+            </Button>
+          )}
         </div>
 
         {/* Pay Rate Intelligence Card */}
