@@ -3,13 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Shield, TrendingUp, Star } from "lucide-react";
-import { useCompetitors } from "@/hooks/useAgencyData";
+import { useCompetitors, useBusinessConfig } from "@/hooks/useAgencyData";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Competitors = () => {
   const { data: competitors, isLoading } = useCompetitors();
+  const { data: businessConfig } = useBusinessConfig();
   const all = competitors || [];
   const avgMarketPay = all.length > 0 ? (all.reduce((s, c) => s + ((c.pay_rate_min || 0) + (c.pay_rate_max || 0)) / 2, 0) / all.length).toFixed(2) : "0";
+  const displayRate = "$22/hr";
 
   return (
     <AppLayout>
@@ -24,7 +26,7 @@ const Competitors = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Your Pay Rate</p>
-                <div className="font-data text-4xl font-bold text-primary">$22/hr</div>
+                <div className="font-data text-4xl font-bold text-primary">{displayRate}</div>
                 <p className="text-sm text-green-400 flex items-center gap-1 mt-1">
                   <TrendingUp className="h-4 w-4" /> Highest in market
                 </p>
