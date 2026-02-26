@@ -1,75 +1,107 @@
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Newspaper, TrendingUp, Users, AlertTriangle, CheckCircle, Star } from "lucide-react";
+import { Newspaper, TrendingUp, Users, AlertTriangle, CheckCircle } from "lucide-react";
+import { useCaregivers, useCampaigns, useReviews, useSourcedCandidates, useRecommendations } from "@/hooks/useAgencyData";
+import { Skeleton } from "@/components/ui/skeleton";
+import { format } from "date-fns";
 
-const Briefing = () => (
-  <AppLayout>
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Newspaper className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold text-foreground">Daily Briefing</h1>
-        <span className="text-sm text-muted-foreground font-data">February 26, 2026</span>
-      </div>
+const Briefing = () => {
+  const { data: caregivers, isLoading } = useCaregivers();
+  const { data: campaigns } = useCampaigns();
+  const { data: reviews } = useReviews();
+  const { data: sourced } = useSourcedCandidates();
+  const { data: recs } = useRecommendations();
 
-      <Card className="bg-card halevai-border halevai-bg-gradient">
-        <CardContent className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Executive Summary</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Strong day yesterday — <span className="text-primary font-bold">8 new caregivers</span> entered the pipeline, with 3 scoring HOT. 
-            Oregon campaigns are outperforming targets at <span className="font-data text-primary">$18.50 CPA</span> vs your $25 target. 
-            Michigan sourcing is ramping up with 12 new candidates enriched. 
-            One concern: <span className="text-yellow-400">3 enrollment cases</span> are going stale (&gt;14 days) — recommend follow-up with county reps today.
-          </p>
-        </CardContent>
-      </Card>
+  const all = caregivers || [];
+  const active = campaigns?.filter(c => c.status === "active") || [];
+  const newToday = all.filter(c => {
+    const d = new Date(c.created_at || "");
+    return Date.now() - d.getTime() < 86400000;
+  });
+  const hotLeads = newToday.filter(c => c.lead_tier === "HOT");
+  const totalSpendYesterday = active.reduce((s, c) => s + (c.spend || 0), 0) / 30; // estimate daily
+  const totalConversions = active.reduce((s, c) => s + (c.conversions || 0), 0);
+  const avgCPA = totalConversions > 0 ? (active.reduce((s, c) => s + (c.spend || 0), 0) / totalConversions).toFixed(2) : "0";
+  const staleEnrollments = all.filter(c => {
+    if (!["intake_started", "enrollment_pending"].includes(c.status || "")) return false;
+    const ref = c.enrollment_started_at || c.created_at;
+    if (!ref) return false;
+    return (Date.now() - new Date(ref).getTime()) > 14 * 86400000;
+  });
+  const unrespondedReviews = (reviews || []).filter(r => !r.responded && (r.rating || 5) <= 3);
+  const pendingRecs = (recs || []).filter(r => r.status === "pending");
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {[
-          { title: "Pipeline Health", icon: Users, items: [
-            { label: "New caregivers (24h)", value: "8", color: "text-primary" },
-            { label: "HOT leads identified", value: "3", color: "text-red-400" },
-            { label: "Moved to next stage", value: "5", color: "text-green-400" },
-            { label: "Lost/closed", value: "1", color: "text-muted-foreground" },
-          ]},
-          { title: "Campaign Performance", icon: TrendingUp, items: [
-            { label: "Total spend yesterday", value: "$142", color: "text-foreground" },
-            { label: "New clicks", value: "47", color: "text-primary" },
-            { label: "Conversions", value: "3", color: "text-green-400" },
-            { label: "Avg CPA", value: "$18.50", color: "text-primary" },
-          ]},
-          { title: "Action Items", icon: AlertTriangle, items: [
-            { label: "Follow up with stale enrollments", value: "3", color: "text-yellow-400" },
-            { label: "Respond to negative review", value: "1", color: "text-red-400" },
-            { label: "Review sourced candidates", value: "12", color: "text-primary" },
-            { label: "Approve recommendations", value: "2", color: "text-primary" },
-          ]},
-          { title: "Wins", icon: CheckCircle, items: [
-            { label: "Patricia Chen authorized (Multnomah)", value: "✓", color: "text-green-400" },
-            { label: "OR campaign under CPA target", value: "✓", color: "text-green-400" },
-            { label: "5-star review from Jennifer M.", value: "★", color: "text-yellow-400" },
-            { label: "2 candidates responded to outreach", value: "✓", color: "text-green-400" },
-          ]},
-        ].map((section) => (
-          <Card key={section.title} className="bg-card halevai-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <section.icon className="h-4 w-4 text-primary" />
-                {section.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {section.items.map((item) => (
-                <div key={item.label} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{item.label}</span>
-                  <span className={`font-data font-bold ${item.color}`}>{item.value}</span>
-                </div>
-              ))}
+  return (
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Newspaper className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl font-bold text-foreground">Daily Briefing</h1>
+          <span className="text-sm text-muted-foreground font-data">{format(new Date(), "MMMM d, yyyy")}</span>
+        </div>
+
+        {isLoading ? <Skeleton className="h-32" /> : (
+          <Card className="bg-card halevai-border halevai-bg-gradient">
+            <CardContent className="p-6 space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">Executive Summary</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                <span className="text-primary font-bold">{newToday.length} new caregivers</span> entered the pipeline today, with {hotLeads.length} scoring HOT.
+                Campaigns are converting at <span className="font-data text-primary">${avgCPA} CPA</span>.
+                {staleEnrollments.length > 0 && <> <span className="text-yellow-400">{staleEnrollments.length} enrollment cases</span> are going stale (&gt;14 days).</>}
+                {unrespondedReviews.length > 0 && <> {unrespondedReviews.length} negative review{unrespondedReviews.length > 1 ? "s" : ""} need{unrespondedReviews.length === 1 ? "s" : ""} a response.</>}
+              </p>
             </CardContent>
           </Card>
-        ))}
+        )}
+
+        <div className="grid md:grid-cols-2 gap-4">
+          {[
+            { title: "Pipeline Health", icon: Users, items: [
+              { label: "New caregivers (24h)", value: String(newToday.length), color: "text-primary" },
+              { label: "HOT leads identified", value: String(hotLeads.length), color: "text-red-400" },
+              { label: "Active caregivers", value: String(all.filter(c => c.status === "active").length), color: "text-green-400" },
+              { label: "Total in pipeline", value: String(all.length), color: "text-foreground" },
+            ]},
+            { title: "Campaign Performance", icon: TrendingUp, items: [
+              { label: "Active campaigns", value: String(active.length), color: "text-foreground" },
+              { label: "Total conversions", value: String(totalConversions), color: "text-green-400" },
+              { label: "Avg CPA", value: `$${avgCPA}`, color: "text-primary" },
+              { label: "Sourced candidates", value: String(sourced?.length || 0), color: "text-primary" },
+            ]},
+            { title: "Action Items", icon: AlertTriangle, items: [
+              { label: "Stale enrollments (>14d)", value: String(staleEnrollments.length), color: staleEnrollments.length > 0 ? "text-yellow-400" : "text-green-400" },
+              { label: "Negative reviews unresponded", value: String(unrespondedReviews.length), color: unrespondedReviews.length > 0 ? "text-red-400" : "text-green-400" },
+              { label: "Pending recommendations", value: String(pendingRecs.length), color: "text-primary" },
+              { label: "Outreach responses", value: String(sourced?.filter(s => s.outreach_status === "responded").length || 0), color: "text-primary" },
+            ]},
+            { title: "Wins", icon: CheckCircle, items: [
+              ...(hotLeads.length > 0 ? [{ label: `${hotLeads[0]?.full_name} scored HOT`, value: "✓", color: "text-green-400" }] : []),
+              ...(Number(avgCPA) > 0 && Number(avgCPA) < 25 ? [{ label: "Campaigns under CPA target", value: "✓", color: "text-green-400" }] : []),
+              { label: `${all.filter(c => c.status === "active").length} active caregivers generating revenue`, value: "✓", color: "text-green-400" },
+              { label: `${(sourced || []).length} candidates sourced`, value: "✓", color: "text-green-400" },
+            ]},
+          ].map((section) => (
+            <Card key={section.title} className="bg-card halevai-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <section.icon className="h-4 w-4 text-primary" />
+                  {section.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {section.items.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{item.label}</span>
+                    <span className={`font-data font-bold ${item.color}`}>{item.value}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
-    </div>
-  </AppLayout>
-);
+    </AppLayout>
+  );
+};
 
 export default Briefing;
