@@ -34,6 +34,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [agencyRole, setAgencyRole] = useState<AgencyRole>(null);
 
   useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, s) => {
+        setSession(s);
+        setUser(s?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (user) {
       supabase
         .from("agency_members")
