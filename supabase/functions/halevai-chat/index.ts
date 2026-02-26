@@ -65,6 +65,9 @@ serve(async (req) => {
       agentActivityRes,
       apiKeysRes,
       messageLogRes,
+      conversationThreadsRes,
+      inboundMessagesRes,
+      sequenceEnrollmentsRes,
     ] = await Promise.all([
       supabase.from("agencies").select("*").eq("id", agencyId).single(),
       supabase.from("caregivers").select("id, full_name, status, lead_score, source, state, county, created_at").eq("agency_id", agencyId).order("created_at", { ascending: false }).limit(50),
@@ -82,12 +85,15 @@ serve(async (req) => {
       supabase.from("caregivers").select("id, full_name, status, last_contacted_at").eq("agency_id", agencyId).in("status", ["new", "contacted"]).order("last_contacted_at", { ascending: true }).limit(10),
       supabase.from("caregivers").select("source").eq("agency_id", agencyId),
       supabase.from("caregivers").select("monthly_revenue").eq("agency_id", agencyId).eq("status", "active"),
-      // NEW: Recruitment & messaging context
       supabase.from("sourced_candidates").select("outreach_status").eq("agency_id", agencyId),
       supabase.from("phone_screens").select("status, ai_score, ai_recommendation, created_at").eq("agency_id", agencyId),
       supabase.from("agent_activity_log").select("agent_type, action, details, created_at").eq("agency_id", agencyId).order("created_at", { ascending: false }).limit(5),
       supabase.from("api_keys").select("key_name, connected").eq("agency_id", agencyId),
       supabase.from("message_log").select("channel, status, created_at").eq("agency_id", agencyId),
+      // NEW: Additional context
+      supabase.from("conversation_threads").select("id, status, unread_count, channel, last_message_at").eq("agency_id", agencyId),
+      supabase.from("inbound_messages").select("id, channel, from_contact, body, created_at, read").eq("agency_id", agencyId).order("created_at", { ascending: false }).limit(10),
+      supabase.from("sequence_enrollments").select("status, sequence_id, started_at, completed_at").eq("agency_id", agencyId),
     ]);
 
     const agency = agencyRes.data;
@@ -111,6 +117,9 @@ serve(async (req) => {
     const agentActivity = agentActivityRes.data || [];
     const apiKeysData = apiKeysRes.data || [];
     const messageLogData = messageLogRes.data || [];
+    const conversationThreads = conversationThreadsRes.data || [];
+    const recentInbound = inboundMessagesRes.data || [];
+    const sequenceEnrollments = sequenceEnrollmentsRes.data || [];
 
     // Compute stats
     const totalCaregivers = caregivers.length;
@@ -145,6 +154,22 @@ serve(async (req) => {
     const msgByChannel: Record<string, number> = {};
     recentMessages.forEach(m => { msgByChannel[m.channel] = (msgByChannel[m.channel] || 0) + 1; });
     const failedMsgCount = recentMessages.filter(m => m.status === "failed").length;
+
+    // NEW: Conversation & sequence stats
+    const totalUnread = conversationThreads.reduce((s: number, t: any) => s + (t.unread_count || 0), 0);
+    const openThreads = conversationThreads.filter((t: any) => t.status === "open").length;
+    const threadsByChannel: Record<string, number> = {};
+    conversationThreads.forEach((t: any) => { threadsByChannel[t.channel] = (threadsByChannel[t.channel] || 0) + 1; });
+
+    const unreadInbound = recentInbound.filter((m: any) => !m.read).length;
+    const recentInboundPreview = recentInbound.slice(0, 5).map((m: any) => 
+      `${m.from_contact} (${m.channel}): "${(m.body || "").slice(0, 60)}..." [${m.created_at}]`
+    );
+
+    const seqActive = sequenceEnrollments.filter((e: any) => e.status === "active").length;
+    const seqCompleted = sequenceEnrollments.filter((e: any) => e.status === "completed").length;
+    const seqPaused = sequenceEnrollments.filter((e: any) => e.status === "paused").length;
+    const seqTotal = sequenceEnrollments.length;
 
     const systemPrompt = `You are Halevai AI, an expert home care agency growth strategist for "${agency?.name || "this agency"}".
 You operate across states: ${agency?.states?.join(", ") || "unknown"}.
@@ -215,6 +240,18 @@ ${agentActivity.map(a => `- [${a.agent_type}] ${a.action}: ${a.details || "no de
 ### Messaging (Last 7 Days)
 - Messages by channel: ${JSON.stringify(msgByChannel)}
 - Failed messages: ${failedMsgCount}
+
+### Inbox / Conversations
+- Open threads: ${openThreads}
+- Total unread messages: ${totalUnread}
+- Threads by channel: ${JSON.stringify(threadsByChannel)}
+- Unread inbound replies: ${unreadInbound}
+${recentInboundPreview.length > 0 ? `- Recent replies:\n${recentInboundPreview.map(r => `  - ${r}`).join("\n")}` : "- No recent inbound replies"}
+
+### Sequence Enrollments
+- Total enrollments: ${seqTotal}
+- Active: ${seqActive}, Completed: ${seqCompleted}, Paused: ${seqPaused}
+${seqTotal > 0 ? `- Completion rate: ${seqTotal > 0 ? Math.round((seqCompleted / seqTotal) * 100) : 0}%` : ""}
 
 ### Automations
 - Active automations: ${automations.filter(a => a.active).length}/${automations.length}
