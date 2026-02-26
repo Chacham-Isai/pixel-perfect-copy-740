@@ -2,3 +2,15 @@ project_id = "jpyjqnucuebmknnykmyf"
 
 [functions.halevai-chat]
 verify_jwt = false
+
+[functions.campaign-optimizer]
+verify_jwt = false
+
+[functions.generate-content]
+verify_jwt = false
+
+[functions.generate-landing-content]
+verify_jwt = false
+
+[functions.generate-creative]
+verify_jwt = false

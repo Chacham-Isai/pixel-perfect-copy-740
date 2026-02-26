@@ -304,6 +304,111 @@ export type Database = {
           },
         ]
       }
+      campaign_packages: {
+        Row: {
+          agency_id: string
+          campaign_id: string | null
+          content: Json | null
+          created_at: string | null
+          id: string
+          platforms: Json | null
+          recommendation_id: string | null
+          status: string | null
+          tracking_urls: Json | null
+          utm_params: Json | null
+        }
+        Insert: {
+          agency_id: string
+          campaign_id?: string | null
+          content?: Json | null
+          created_at?: string | null
+          id?: string
+          platforms?: Json | null
+          recommendation_id?: string | null
+          status?: string | null
+          tracking_urls?: Json | null
+          utm_params?: Json | null
+        }
+        Update: {
+          agency_id?: string
+          campaign_id?: string | null
+          content?: Json | null
+          created_at?: string | null
+          id?: string
+          platforms?: Json | null
+          recommendation_id?: string | null
+          status?: string | null
+          tracking_urls?: Json | null
+          utm_params?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_packages_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_packages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_packages_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "halevai_recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_sequences: {
+        Row: {
+          active: boolean | null
+          agency_id: string
+          created_at: string | null
+          id: string
+          name: string
+          target_language: string | null
+          target_state: string | null
+          trigger_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          agency_id: string
+          created_at?: string | null
+          id?: string
+          name: string
+          target_language?: string | null
+          target_state?: string | null
+          trigger_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          agency_id?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          target_language?: string | null
+          target_state?: string | null
+          trigger_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_sequences_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           agency_id: string
@@ -965,6 +1070,57 @@ export type Database = {
           },
         ]
       }
+      landing_page_events: {
+        Row: {
+          agency_id: string
+          created_at: string | null
+          event_type: string
+          id: string
+          landing_page_id: string
+          metadata: Json | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string | null
+          event_type: string
+          id?: string
+          landing_page_id: string
+          metadata?: Json | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          landing_page_id?: string
+          metadata?: Json | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_page_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_page_events_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_pages: {
         Row: {
           agency_id: string
@@ -1326,6 +1482,110 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_sources: {
+        Row: {
+          agency_id: string
+          county: string | null
+          created_at: string | null
+          discovered_by: string
+          id: string
+          language_community: string | null
+          name: string
+          notes: string | null
+          source_type: string
+          state: string | null
+          url: string | null
+        }
+        Insert: {
+          agency_id: string
+          county?: string | null
+          created_at?: string | null
+          discovered_by?: string
+          id?: string
+          language_community?: string | null
+          name: string
+          notes?: string | null
+          source_type?: string
+          state?: string | null
+          url?: string | null
+        }
+        Update: {
+          agency_id?: string
+          county?: string | null
+          created_at?: string | null
+          discovered_by?: string
+          id?: string
+          language_community?: string | null
+          name?: string
+          notes?: string | null
+          source_type?: string
+          state?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_sources_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_requests: {
+        Row: {
+          agency_id: string
+          caregiver_id: string
+          clicked_at: string | null
+          completed_at: string | null
+          id: string
+          max_reminders: number | null
+          reminder_count: number | null
+          review_link: string | null
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          agency_id: string
+          caregiver_id: string
+          clicked_at?: string | null
+          completed_at?: string | null
+          id?: string
+          max_reminders?: number | null
+          reminder_count?: number | null
+          review_link?: string | null
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          agency_id?: string
+          caregiver_id?: string
+          clicked_at?: string | null
+          completed_at?: string | null
+          id?: string
+          max_reminders?: number | null
+          reminder_count?: number | null
+          review_link?: string | null
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_requests_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_requests_caregiver_id_fkey"
+            columns: ["caregiver_id"]
+            isOneToOne: false
+            referencedRelation: "caregivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           agency_id: string
@@ -1366,6 +1626,165 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_campaign_templates: {
+        Row: {
+          agency_id: string
+          campaign_type: string | null
+          channel: string | null
+          content: Json | null
+          created_at: string | null
+          id: string
+          performance_rating: string | null
+          state: string | null
+          tags: string[] | null
+          target_language: string | null
+          title: string
+        }
+        Insert: {
+          agency_id: string
+          campaign_type?: string | null
+          channel?: string | null
+          content?: Json | null
+          created_at?: string | null
+          id?: string
+          performance_rating?: string | null
+          state?: string | null
+          tags?: string[] | null
+          target_language?: string | null
+          title: string
+        }
+        Update: {
+          agency_id?: string
+          campaign_type?: string | null
+          channel?: string | null
+          content?: Json | null
+          created_at?: string | null
+          id?: string
+          performance_rating?: string | null
+          state?: string | null
+          tags?: string[] | null
+          target_language?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_campaign_templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sequence_enrollments: {
+        Row: {
+          agency_id: string
+          caregiver_id: string
+          completed_at: string | null
+          current_step: number | null
+          id: string
+          sequence_id: string
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          agency_id: string
+          caregiver_id: string
+          completed_at?: string | null
+          current_step?: number | null
+          id?: string
+          sequence_id: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          agency_id?: string
+          caregiver_id?: string
+          completed_at?: string | null
+          current_step?: number | null
+          id?: string
+          sequence_id?: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequence_enrollments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_enrollments_caregiver_id_fkey"
+            columns: ["caregiver_id"]
+            isOneToOne: false
+            referencedRelation: "caregivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_enrollments_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sequence_steps: {
+        Row: {
+          active: boolean | null
+          agency_id: string
+          ai_generated: boolean | null
+          body: string | null
+          channel: string
+          delay_hours: number
+          id: string
+          sequence_id: string
+          step_number: number
+          subject: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          agency_id: string
+          ai_generated?: boolean | null
+          body?: string | null
+          channel?: string
+          delay_hours?: number
+          id?: string
+          sequence_id: string
+          step_number?: number
+          subject?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          agency_id?: string
+          ai_generated?: boolean | null
+          body?: string | null
+          channel?: string
+          delay_hours?: number
+          id?: string
+          sequence_id?: string
+          step_number?: number
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequence_steps_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_sequences"
             referencedColumns: ["id"]
           },
         ]

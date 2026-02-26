@@ -87,6 +87,28 @@ export const useBusinessConfig = () => {
   });
 };
 
+// New table hooks
+export const useReferralSources = () => useAgencyQuery<any>("referral_sources", "referral_sources", { orderBy: "created_at" });
+export const useCampaignTemplates = () => useAgencyQuery<any>("campaign_templates", "saved_campaign_templates", { orderBy: "created_at" });
+export const useCampaignSequences = () => useAgencyQuery<any>("campaign_sequences", "campaign_sequences", { orderBy: "created_at" });
+export const useSequenceSteps = (sequenceId?: string) => {
+  const { agencyId } = useAuth();
+  return useQuery({
+    queryKey: ["sequence_steps", agencyId, sequenceId],
+    queryFn: async () => {
+      if (!agencyId || !sequenceId) return [];
+      const { data, error } = await supabase.from("sequence_steps" as any).select("*").eq("agency_id", agencyId).eq("sequence_id", sequenceId).order("step_number");
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    enabled: !!agencyId && !!sequenceId,
+  });
+};
+export const useSequenceEnrollments = () => useAgencyQuery<any>("sequence_enrollments", "sequence_enrollments", { orderBy: "started_at" });
+export const useCampaignPackages = () => useAgencyQuery<any>("campaign_packages", "campaign_packages", { orderBy: "created_at" });
+export const useLandingPageEvents = () => useAgencyQuery<any>("landing_page_events", "landing_page_events", { orderBy: "created_at" });
+export const useReviewRequests = () => useAgencyQuery<any>("review_requests", "review_requests", { orderBy: "sent_at" });
+
 export const useToggleAutomation = () => {
   const qc = useQueryClient();
   return useMutation({
