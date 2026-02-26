@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,9 +53,43 @@ const AdCreatives = () => {
     setGenerating(false);
   };
 
-  const handleAutoPrompt = () => {
-    setPrompt("Warm, professional photo of a diverse caregiver helping an elderly person at home. Bright natural lighting, genuine smiles. Include text overlay space for $21/hr headline. Home care agency branding.");
-  };
+  const [autoPromptLoading, setAutoPromptLoading] = useState(false);
+
+  const handleAutoPrompt = useCallback(async () => {
+    setAutoPromptLoading(true);
+    try {
+      // Fetch agency context for a data-driven prompt
+      const [configRes, ratesRes, topCampaignsRes] = await Promise.all([
+        supabase.from("business_config").select("business_name, tagline, primary_color, industry").eq("agency_id", agencyId!).maybeSingle(),
+        supabase.from("pay_rate_intel").select("recommended_rate, state, county").eq("agency_id", agencyId!).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("campaigns").select("campaign_name, channel, conversions, spend, cost_per_conversion").eq("agency_id", agencyId!).order("conversions", { ascending: false }).limit(3),
+      ]);
+
+      const cfg = configRes.data;
+      const rate = ratesRes.data;
+      const topCampaigns = topCampaignsRes.data || [];
+
+      const agencyName = cfg?.business_name || "our agency";
+      const payRate = rate?.recommended_rate ? `$${rate.recommended_rate}/hr` : "$21/hr";
+      const location = [rate?.county, rate?.state].filter(Boolean).join(", ") || "";
+      const topThemes = topCampaigns.map(c => c.campaign_name).join("; ");
+
+      const prompt = [
+        `Warm, professional photo for ${agencyName} recruitment ad.`,
+        `Highlight pay rate of ${payRate}.`,
+        location && `Target market: ${location}.`,
+        `Show a diverse caregiver assisting an elderly person at home, bright natural lighting, genuine smiles.`,
+        topThemes && `Themes from top-performing campaigns: ${topThemes}.`,
+        `Leave space for headline text overlay. ${cfg?.tagline ? `Brand tagline: "${cfg.tagline}".` : ""}`,
+      ].filter(Boolean).join(" ");
+
+      setPrompt(prompt);
+    } catch (e) {
+      // Fallback to generic prompt
+      setPrompt("Warm, professional photo of a diverse caregiver helping an elderly person at home. Bright natural lighting, genuine smiles. Include text overlay space for headline. Home care agency branding.");
+    }
+    setAutoPromptLoading(false);
+  }, [agencyId]);
 
   const handleDownload = (c: any) => {
     const content = `HEADLINE:\n${c.headline || ""}\n\nBODY COPY:\n${c.body_copy || ""}\n\nPROMPT:\n${c.prompt || ""}`;
@@ -103,7 +137,9 @@ const AdCreatives = () => {
                   <div className="space-y-2">
                     <Label>Creative Prompt</Label>
                     <Textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe what you want..." className="bg-secondary border-border min-h-[100px]" />
-                    <Button size="sm" variant="outline" onClick={handleAutoPrompt}><Sparkles className="h-3 w-3 mr-1" /> Auto-Prompt</Button>
+                    <Button size="sm" variant="outline" onClick={handleAutoPrompt} disabled={autoPromptLoading}>
+                      {autoPromptLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />} Auto-Prompt
+                    </Button>
                   </div>
                   <div className="space-y-2">
                     <Label>Platform Size</Label>

@@ -29,17 +29,63 @@ serve(async (req) => {
     }
 
     const serviceClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const configRes = await serviceClient.from("business_config").select("*").eq("agency_id", agencyId).maybeSingle();
+
+    // Fetch real agency data for context
+    const [configRes, agencyRes, rateRes, topCampaignsRes, topCreativesRes] = await Promise.all([
+      serviceClient.from("business_config").select("*").eq("agency_id", agencyId).maybeSingle(),
+      serviceClient.from("agencies").select("name, primary_state, states").eq("id", agencyId).maybeSingle(),
+      serviceClient.from("pay_rate_intel").select("recommended_rate, state, county, market_avg_rate").eq("agency_id", agencyId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      serviceClient.from("campaigns").select("campaign_name, channel, conversions, clicks, spend, campaign_type").eq("agency_id", agencyId).not("conversions", "is", null).order("conversions", { ascending: false }).limit(5),
+      serviceClient.from("ad_creatives").select("headline, body_copy").eq("agency_id", agencyId).order("created_at", { ascending: false }).limit(5),
+    ]);
+
     const config = configRes.data;
+    const agency = agencyRes.data;
+    const rate = rateRes.data;
+    const topCampaigns = topCampaignsRes.data || [];
+    const recentCreatives = topCreativesRes.data || [];
+
+    // Build dynamic context
+    const agencyName = config?.business_name || agency?.name || "Home Care Agency";
+    const tagline = config?.tagline || "";
+    const payRate = rate?.recommended_rate ? `$${rate.recommended_rate}/hr` : "$21/hr";
+    const marketAvg = rate?.market_avg_rate ? `$${rate.market_avg_rate}/hr` : null;
+    const location = [rate?.county, rate?.state || agency?.primary_state].filter(Boolean).join(", ");
+    const brandColors = [config?.primary_color, config?.secondary_color, config?.accent_color].filter(Boolean).join(", ") || "navy blue and sky blue";
+
+    const topPerformingThemes = topCampaigns.length > 0
+      ? `Top-performing campaigns: ${topCampaigns.map(c => `"${c.campaign_name}" (${c.conversions} conversions via ${c.channel})`).join("; ")}.`
+      : "";
+
+    const avoidRepetition = recentCreatives.length > 0
+      ? `Recent headlines used (avoid repeating): ${recentCreatives.map(c => `"${c.headline}"`).join(", ")}.`
+      : "";
+
+    const competitiveAngle = marketAvg
+      ? `The market average pay is ${marketAvg}, so highlight ${payRate} as above-market.`
+      : "";
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Step 1: Generate ad copy
+    // Step 1: Generate ad copy with real context
+    const systemPrompt = [
+      `You are an expert ad copywriter for "${agencyName}"${tagline ? ` — "${tagline}"` : ""}.`,
+      `Industry: home care / caregiver recruitment.`,
+      `Pay rate to highlight: ${payRate}.`,
+      location && `Primary market: ${location}.`,
+      `Brand colors: ${brandColors}.`,
+      topPerformingThemes,
+      avoidRepetition,
+      competitiveAngle,
+      `Create compelling, warm, trust-building ad copy. Use the agency name "${agencyName}" prominently.`,
+      `Tailor language and messaging to what has historically performed best for this agency.`,
+    ].filter(Boolean).join(" ");
+
     const copyBody = {
       model: "google/gemini-3-flash-preview",
       messages: [
-        { role: "system", content: `You are an ad copywriter for Care at Home. Tagline: "Care starts at home™". Create compelling ad copy that reflects warmth, trust, and professionalism. Use the Care at Home brand name prominently. Pay rate: $21/hr. Brand colors: navy blue and sky blue.` },
+        { role: "system", content: systemPrompt },
         { role: "user", content: `Write ad copy for: "${prompt}". Platform: ${platform || "Facebook"}. Return headline and body copy.` },
       ],
       tools: [{
@@ -87,7 +133,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-image",
           messages: [
-            { role: "user", content: `Generate a professional ad image for Care at Home, a home care agency. ${copy.image_prompt || prompt}. Use navy blue and sky blue color palette. Clean, professional, warm. Do NOT include any text or logos in the image.` },
+            { role: "user", content: `Generate a professional ad image for ${agencyName}, a home care agency. ${copy.image_prompt || prompt}. Use ${brandColors} color palette. Clean, professional, warm. Do NOT include any text or logos in the image.` },
           ],
           modalities: ["image", "text"],
         }),
@@ -98,7 +144,6 @@ serve(async (req) => {
         const base64Url = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
         if (base64Url) {
-          // Extract base64 data and upload to storage
           const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, "");
           const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
           const fileName = `${agencyId}/${crypto.randomUUID()}.png`;
@@ -117,7 +162,6 @@ serve(async (req) => {
       }
     } catch (imgErr) {
       console.error("Image generation error:", imgErr);
-      // Continue without image - copy is still valuable
     }
 
     return new Response(JSON.stringify({
