@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import {
   LayoutDashboard, Users, Megaphone, Search, Bot, MessageSquare, Star,
   FileText, Zap, Settings, BookOpen, Newspaper, Palette, Phone, BarChart3,
-  UserPlus, Inbox
+  UserPlus, Inbox, User, Target
 } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
+import { useCaregivers, useCampaigns } from "@/hooks/useAgencyData";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, keywords: "home overview" },
@@ -38,7 +39,10 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdSearch, setCmdSearch] = useState("");
   const navigate = useNavigate();
+  const { data: caregivers } = useCaregivers();
+  const { data: campaigns } = useCampaigns();
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -53,8 +57,26 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const handleSelect = useCallback((href: string) => {
     setCmdOpen(false);
+    setCmdSearch("");
     navigate(href);
   }, [navigate]);
+
+  // Filter entities based on search
+  const searchLower = cmdSearch.toLowerCase();
+  const matchedCaregivers = cmdSearch.length >= 2
+    ? (caregivers || []).filter(c =>
+        c.full_name.toLowerCase().includes(searchLower) ||
+        (c.phone || "").includes(searchLower) ||
+        (c.email || "").toLowerCase().includes(searchLower)
+      ).slice(0, 5)
+    : [];
+
+  const matchedCampaigns = cmdSearch.length >= 2
+    ? (campaigns || []).filter(c =>
+        c.campaign_name.toLowerCase().includes(searchLower) ||
+        (c.state || "").toLowerCase().includes(searchLower)
+      ).slice(0, 5)
+    : [];
 
   return (
     <SidebarProvider>
@@ -86,10 +108,41 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
         </main>
 
-        <CommandDialog open={cmdOpen} onOpenChange={setCmdOpen}>
-          <CommandInput placeholder="Search pages, actions..." />
+        <CommandDialog open={cmdOpen} onOpenChange={(open) => { setCmdOpen(open); if (!open) setCmdSearch(""); }}>
+          <CommandInput placeholder="Search pages, caregivers, campaigns..." value={cmdSearch} onValueChange={setCmdSearch} />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
+
+            {matchedCaregivers.length > 0 && (
+              <>
+                <CommandGroup heading="Caregivers">
+                  {matchedCaregivers.map((c) => (
+                    <CommandItem key={c.id} onSelect={() => handleSelect("/caregivers")} keywords={[c.full_name, c.phone || "", c.email || ""]}>
+                      <User className="mr-2 h-4 w-4 text-primary" />
+                      <span>{c.full_name}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{c.status} · {c.lead_tier || "—"}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                <CommandSeparator />
+              </>
+            )}
+
+            {matchedCampaigns.length > 0 && (
+              <>
+                <CommandGroup heading="Campaigns">
+                  {matchedCampaigns.map((c) => (
+                    <CommandItem key={c.id} onSelect={() => handleSelect("/campaigns")} keywords={[c.campaign_name, c.state || ""]}>
+                      <Target className="mr-2 h-4 w-4 text-primary" />
+                      <span>{c.campaign_name}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{c.status} · {c.state || "—"}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                <CommandSeparator />
+              </>
+            )}
+
             <CommandGroup heading="Navigation">
               {NAV_ITEMS.map((item) => (
                 <CommandItem key={item.href} onSelect={() => handleSelect(item.href)} keywords={[item.keywords]}>

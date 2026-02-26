@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import TeamMembers from "@/components/TeamMembers";
 import IntegrationsTab from "@/components/IntegrationsTab";
+import { agencyProfileSchema, formatZodErrors } from "@/lib/validations";
 
 const Settings = () => {
   const { data: agency, isLoading, refetch: refetchAgency } = useAgency();
@@ -65,6 +66,9 @@ const Settings = () => {
 
   const saveAgency = async () => {
     if (!agencyId) return;
+    const validation = agencyProfileSchema.safeParse(agencyForm);
+    const errors = formatZodErrors(validation);
+    if (errors) { toast.error(errors); return; }
     setSavingAgency(true);
     const { error } = await supabase.from("agencies").update({
       name: agencyForm.name, phone: agencyForm.phone || null, email: agencyForm.email || null,
