@@ -232,3 +232,74 @@ export const useTestConnection = () => {
 
 export const useAgentActivityLog = () => useAgencyQuery<any>("agent_activity_log", "agent_activity_log", { orderBy: "created_at", limit: 50 });
 export const usePhoneScreens = () => useAgencyQuery<any>("phone_screens", "phone_screens", { orderBy: "created_at" });
+
+// === Phase 2: Inbound Messaging hooks ===
+
+export const useConversationThreads = () =>
+  useAgencyQuery<any>("conversation_threads", "conversation_threads", { orderBy: "last_message_at" });
+
+export const useUnreadCount = () => {
+  const { agencyId } = useAuth();
+  return useQuery({
+    queryKey: ["unread_count", agencyId],
+    queryFn: async () => {
+      if (!agencyId) return 0;
+      const { data, error } = await supabase
+        .from("conversation_threads" as any)
+        .select("unread_count")
+        .eq("agency_id", agencyId)
+        .eq("status", "open");
+      if (error) throw error;
+      return (data || []).reduce((sum: number, t: any) => sum + (t.unread_count || 0), 0);
+    },
+    enabled: !!agencyId,
+  });
+};
+
+export const useThreadMessages = (
+  contactPhone: string | null,
+  contactEmail: string | null,
+  channel: string
+) => {
+  const { agencyId } = useAuth();
+  return useQuery({
+    queryKey: ["thread_messages", agencyId, contactPhone, contactEmail, channel],
+    queryFn: async () => {
+      if (!agencyId) return [];
+      const contact = channel === "sms" ? contactPhone : contactEmail;
+      if (!contact) return [];
+
+      // Fetch outbound messages from message_log
+      const contactField = channel === "sms" ? "to_contact" : "to_contact";
+      const { data: outbound } = await supabase
+        .from("message_log" as any)
+        .select("id, channel, to_contact, subject, body, status, created_at")
+        .eq("agency_id", agencyId)
+        .eq("channel", channel)
+        .ilike(contactField, `%${contact.slice(-10)}%`)
+        .order("created_at", { ascending: true });
+
+      // Fetch inbound messages
+      const fromField = "from_contact";
+      const { data: inbound } = await supabase
+        .from("inbound_messages" as any)
+        .select("id, channel, from_contact, subject, body, created_at")
+        .eq("agency_id", agencyId)
+        .eq("channel", channel)
+        .ilike(fromField, `%${contact.slice(-10)}%`)
+        .order("created_at", { ascending: true });
+
+      // Merge and sort chronologically
+      const merged = [
+        ...(outbound || []).map((m: any) => ({ ...m, direction: "outbound" })),
+        ...(inbound || []).map((m: any) => ({ ...m, direction: "inbound", status: "received" })),
+      ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      return merged;
+    },
+    enabled: !!agencyId && !!(contactPhone || contactEmail),
+  });
+};
+
+export const useInboundMessages = () =>
+  useAgencyQuery<any>("inbound_messages", "inbound_messages", { orderBy: "created_at", limit: 50 });

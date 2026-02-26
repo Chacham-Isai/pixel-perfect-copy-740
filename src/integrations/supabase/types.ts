@@ -959,6 +959,79 @@ export type Database = {
           },
         ]
       }
+      conversation_threads: {
+        Row: {
+          agency_id: string
+          caregiver_id: string | null
+          channel: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          last_message_preview: string | null
+          sourced_candidate_id: string | null
+          status: string | null
+          unread_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          caregiver_id?: string | null
+          channel: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          sourced_candidate_id?: string | null
+          status?: string | null
+          unread_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          caregiver_id?: string | null
+          channel?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          sourced_candidate_id?: string | null
+          status?: string | null
+          unread_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_threads_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_threads_caregiver_id_fkey"
+            columns: ["caregiver_id"]
+            isOneToOne: false
+            referencedRelation: "caregivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_threads_sourced_candidate_id_fkey"
+            columns: ["sourced_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "sourced_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_briefings: {
         Row: {
           agency_id: string
@@ -1184,6 +1257,79 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbound_messages: {
+        Row: {
+          agency_id: string
+          body: string
+          caregiver_id: string | null
+          channel: string
+          created_at: string | null
+          external_id: string | null
+          from_contact: string
+          id: string
+          matched: boolean | null
+          metadata: Json | null
+          read: boolean | null
+          sourced_candidate_id: string | null
+          subject: string | null
+          to_contact: string | null
+        }
+        Insert: {
+          agency_id: string
+          body: string
+          caregiver_id?: string | null
+          channel: string
+          created_at?: string | null
+          external_id?: string | null
+          from_contact: string
+          id?: string
+          matched?: boolean | null
+          metadata?: Json | null
+          read?: boolean | null
+          sourced_candidate_id?: string | null
+          subject?: string | null
+          to_contact?: string | null
+        }
+        Update: {
+          agency_id?: string
+          body?: string
+          caregiver_id?: string | null
+          channel?: string
+          created_at?: string | null
+          external_id?: string | null
+          from_contact?: string
+          id?: string
+          matched?: boolean | null
+          metadata?: Json | null
+          read?: boolean | null
+          sourced_candidate_id?: string | null
+          subject?: string | null
+          to_contact?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_messages_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_messages_caregiver_id_fkey"
+            columns: ["caregiver_id"]
+            isOneToOne: false
+            referencedRelation: "caregivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_messages_sourced_candidate_id_fkey"
+            columns: ["sourced_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "sourced_candidates"
             referencedColumns: ["id"]
           },
         ]

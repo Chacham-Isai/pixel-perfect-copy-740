@@ -231,9 +231,8 @@ const Settings = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="team" className="mt-4">
-            <TeamMembers />
-          </TabsContent>
+
+
 
           <TabsContent value="integrations" className="mt-4">
             <IntegrationsTab />

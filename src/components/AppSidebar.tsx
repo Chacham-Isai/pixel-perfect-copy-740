@@ -1,9 +1,10 @@
 import {
   LayoutDashboard, Bot, Lightbulb, BookOpen, Newspaper,
   Users, ClipboardList, Megaphone, PenTool, Globe, CalendarDays, Image,
-  Search, Shield, Star,
+  Search, Shield, Star, Inbox,
   Zap, Settings, LogOut
 } from "lucide-react";
+import { useUnreadCount } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
@@ -26,6 +27,7 @@ const navSections = [
     label: "CORE",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+      { title: "Inbox", url: "/inbox", icon: Inbox },
       { title: "Halevai AI", url: "/halevai", icon: Bot },
       { title: "Recommendations", url: "/recommendations", icon: Lightbulb },
       { title: "Playbooks", url: "/playbooks", icon: BookOpen },
@@ -68,6 +70,7 @@ const navSections = [
 
 export function AppSidebar() {
   const { signOut } = useAuth();
+  const { data: unreadCount } = useUnreadCount();
   return (
     <Sidebar className="border-r border-border">
       <Link to="/dashboard" className="p-5 flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -93,6 +96,11 @@ export function AppSidebar() {
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
                         <span>{item.title}</span>
+                        {item.title === "Inbox" && (unreadCount || 0) > 0 && (
+                          <span className="ml-auto inline-flex items-center justify-center h-4 min-w-[16px] px-1 text-[10px] font-bold rounded-full bg-primary text-primary-foreground">
+                            {unreadCount}
+                          </span>
+                        )}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
