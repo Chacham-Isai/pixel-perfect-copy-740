@@ -40,6 +40,8 @@ const CampaignBuilder = () => {
   const [generating, setGenerating] = useState(false);
   const [generatedPackage, setGeneratedPackage] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [platformStatus, setPlatformStatus] = useState<Record<string, any>>({});
+  const [checkingPlatforms, setCheckingPlatforms] = useState(false);
   const { agencyId } = useAuth();
   const { data: agency } = useAgency();
   const navigate = useNavigate();
@@ -221,6 +223,26 @@ const CampaignBuilder = () => {
                   <div className="text-xs text-muted-foreground">Language:</div><div className="text-xs text-foreground capitalize">{details.language}</div>
                   <div className="text-xs text-muted-foreground">Generated Content:</div><div className="text-xs text-foreground">{generatedPackage ? `${generatedPackage.platforms?.length || 0} platforms` : "None"}</div>
                 </div>
+
+                {/* Platform Connection Status */}
+                {Object.keys(platformStatus).length > 0 && (
+                  <Card className="bg-secondary/30 halevai-border max-w-md mx-auto">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-semibold text-foreground mb-3">Platform Connections</h3>
+                      <div className="space-y-2">
+                        {Object.entries(platformStatus).map(([key, val]: [string, any]) => (
+                          <div key={key} className="flex items-center justify-between text-xs">
+                            <span className="text-foreground capitalize">{key.replace(/_/g, " ")}</span>
+                            <Badge variant="outline" className={val.connected ? "border-green-400/30 text-green-400" : "border-yellow-400/30 text-yellow-400"}>
+                              {val.connected ? "✓ Connected" : "Not Connected"}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <div className="flex justify-center gap-3 mt-6">
                   <Button onClick={() => handleLaunch(false)} disabled={saving} className="bg-primary text-primary-foreground halevai-glow">🚀 Launch Campaign</Button>
                   <Button onClick={() => handleLaunch(true)} disabled={saving} variant="outline"><Save className="h-4 w-4 mr-1" /> Save as Draft</Button>
@@ -232,7 +254,25 @@ const CampaignBuilder = () => {
             <div className="flex justify-between mt-6">
               {step > 0 ? <Button variant="outline" onClick={() => setStep(s => s - 1)}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button> : <div />}
               {step < 3 && (
-                <Button className="bg-primary text-primary-foreground" disabled={step === 0 && selectedPlatforms.length === 0} onClick={() => { if (step === 2 && !generatedPackage) { handleGenerate().then(() => setStep(3)); } else { setStep(s => s + 1); } }}>
+                <Button className="bg-primary text-primary-foreground" disabled={step === 0 && selectedPlatforms.length === 0} onClick={async () => {
+                  if (step === 2 && !generatedPackage) {
+                    await handleGenerate();
+                    // Check platform credentials when moving to review
+                    try {
+                      const { data } = await supabase.functions.invoke("post-to-ads", { body: { action: "check_credentials", agencyId } });
+                      if (data?.platforms) setPlatformStatus(data.platforms);
+                    } catch {}
+                    setStep(3);
+                  } else {
+                    if (step === 2) {
+                      try {
+                        const { data } = await supabase.functions.invoke("post-to-ads", { body: { action: "check_credentials", agencyId } });
+                        if (data?.platforms) setPlatformStatus(data.platforms);
+                      } catch {}
+                    }
+                    setStep(s => s + 1);
+                  }
+                }}>
                   {step === 2 && !generatedPackage ? <><Sparkles className="h-4 w-4 mr-1" />Generate & Continue</> : <>Next <ArrowRight className="h-4 w-4 ml-1" /></>}
                 </Button>
               )}

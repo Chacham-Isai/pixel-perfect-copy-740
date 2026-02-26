@@ -27,6 +27,7 @@ import AdCreatives from "./pages/AdCreatives";
 import Automations from "./pages/Automations";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import PublicLandingPage from "./pages/PublicLandingPage";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,7 @@ const App = () => (
             <Route path="/creatives" element={<P><AdCreatives /></P>} />
             <Route path="/automations" element={<P><Automations /></P>} />
             <Route path="/settings" element={<P><Settings /></P>} />
+            <Route path="/lp/:slug" element={<PublicLandingPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
