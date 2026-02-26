@@ -15,6 +15,7 @@ import { useAgency } from "@/hooks/useAgencyData";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { campaignDetailsSchema, formatZodErrors } from "@/lib/validations";
 
 const PLATFORM_CATEGORIES = [
   {
@@ -120,6 +121,13 @@ const CampaignBuilder = () => {
   };
 
   const handleLaunch = async (asDraft = false) => {
+    // Validate details before launch
+    const result = campaignDetailsSchema.safeParse(details);
+    const errors = formatZodErrors(result);
+    if (errors && !asDraft) {
+      toast.error(errors);
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase.from("campaigns").insert({

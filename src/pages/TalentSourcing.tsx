@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { sourcingCampaignSchema, formatZodErrors } from "@/lib/validations";
 
 // Pre-built sequences for display
 const OUTREACH_SEQUENCES = {
@@ -93,7 +94,10 @@ const TalentSourcing = () => {
   }, [agencyId, refetchActivity]);
 
   const handleCreate = async () => {
-    if (!agencyId || !form.name.trim()) return;
+    const validation = sourcingCampaignSchema.safeParse(form);
+    const errors = formatZodErrors(validation);
+    if (errors) { toast.error(errors); return; }
+    if (!agencyId) return;
     setCreating(true);
     const { error } = await supabase.from("sourcing_campaigns").insert({
       agency_id: agencyId, name: form.name, state: form.state || null,

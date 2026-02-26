@@ -223,7 +223,13 @@ const Automations = () => {
                 </div>
               );
             })}
-            {all.length === 0 && <p className="text-center text-muted-foreground py-8">No automations configured</p>}
+            {all.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Zap className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-1">No automations configured</h3>
+                <p className="text-sm text-muted-foreground max-w-md mb-4">Automations are created during onboarding. Complete setup to enable automatic follow-ups, lead scoring, and more.</p>
+              </div>
+            )}
           </div>
         )}
 

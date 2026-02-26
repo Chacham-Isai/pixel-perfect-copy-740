@@ -8,6 +8,7 @@ import { Loader2, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { composeMessageSchema, formatZodErrors } from "@/lib/validations";
 
 type Channel = "sms" | "email";
 
@@ -37,8 +38,10 @@ export function ComposeMessageDialog({
   const qc = useQueryClient();
 
   const handleSend = async () => {
-    if (!body.trim()) {
-      toast.error("Message body is required");
+    const validation = composeMessageSchema.safeParse({ to, subject, body });
+    const errors = formatZodErrors(validation);
+    if (errors) {
+      toast.error(errors);
       return;
     }
     setSending(true);

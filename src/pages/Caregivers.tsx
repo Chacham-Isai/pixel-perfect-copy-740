@@ -23,6 +23,7 @@ import { ComposeMessageDialog } from "@/components/ComposeMessageDialog";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { isValidStatusTransition, normalizePhone } from "@/lib/formatters";
+import { addCaregiverSchema, formatZodErrors } from "@/lib/validations";
 import {
   DndContext,
   DragOverlay,
@@ -191,7 +192,10 @@ const Caregivers = () => {
   }, [agencyId, qc]);
 
   const handleAddCaregiver = async () => {
-    if (!form.full_name.trim() || !agencyId) return;
+    const validation = addCaregiverSchema.safeParse(form);
+    const errors = formatZodErrors(validation);
+    if (errors) { toast.error(errors); return; }
+    if (!agencyId) return;
     setSaving(true);
     try {
       const { error } = await supabase.from("caregivers").insert({
