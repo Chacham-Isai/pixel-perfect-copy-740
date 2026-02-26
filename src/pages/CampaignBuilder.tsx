@@ -14,24 +14,62 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
-const PLATFORMS = [
-  { name: "Indeed", category: "Job Board", estimated: "500-2K reach", cpa: "$15-40" },
-  { name: "ZipRecruiter", category: "Job Board", estimated: "300-1.5K reach", cpa: "$20-50" },
-  { name: "Care.com", category: "Job Board", estimated: "200-800 reach", cpa: "$25-60" },
-  { name: "Craigslist", category: "Job Board", estimated: "100-500 reach", cpa: "Free" },
-  { name: "Glassdoor", category: "Job Board", estimated: "200-1K reach", cpa: "$30-60" },
-  { name: "Facebook", category: "Social/Paid", estimated: "5K-50K reach", cpa: "$10-35" },
-  { name: "Instagram", category: "Social/Paid", estimated: "3K-20K reach", cpa: "$12-40" },
-  { name: "Google Ads", category: "Social/Paid", estimated: "1K-10K reach", cpa: "$20-50" },
-  { name: "LinkedIn", category: "Social/Paid", estimated: "500-5K reach", cpa: "$30-70" },
-  { name: "TikTok", category: "Social/Paid", estimated: "5K-100K reach", cpa: "$8-25" },
-  { name: "Churches/Cultural Centers", category: "Community", estimated: "50-200 reach", cpa: "$0-5" },
-  { name: "Senior Centers", category: "Community", estimated: "30-100 reach", cpa: "$0-5" },
-  { name: "Job Fairs", category: "Community", estimated: "100-500 reach", cpa: "$10-30" },
-  { name: "Community Events", category: "Community", estimated: "50-300 reach", cpa: "$5-20" },
-  { name: "Google for Jobs", category: "Organic", estimated: "500-5K reach", cpa: "Free" },
-  { name: "Employee Referrals", category: "Organic", estimated: "10-50 reach", cpa: "$200/hire" },
+const PLATFORM_CATEGORIES = [
+  {
+    label: "📱 Social Media Ads",
+    description: "Paid ads that show up in people's social media feeds — great for reaching caregivers where they already spend time.",
+    platforms: [
+      { name: "Facebook/Meta Ads", tip: "Best for reaching caregivers 30-55. You choose the area, age, interests — Facebook shows your ad to the right people.", estimated: "5K-50K reach", cpa: "$10-35" },
+      { name: "Instagram Ads", tip: "Runs through the same system as Facebook. Great for younger caregivers with visual ads.", estimated: "3K-20K reach", cpa: "$12-40" },
+      { name: "TikTok Ads", tip: "Short video ads. Huge reach with younger audiences. Low cost per click.", estimated: "5K-100K reach", cpa: "$8-25" },
+      { name: "LinkedIn Ads", tip: "Best for experienced/certified caregivers. Higher cost but higher quality leads.", estimated: "500-5K reach", cpa: "$30-70" },
+      { name: "Nextdoor Ads", tip: "Hyper-local neighborhood ads. People trust Nextdoor for local services.", estimated: "1K-10K reach", cpa: "$15-40" },
+    ],
+  },
+  {
+    label: "🔍 Search Engine Ads",
+    description: "Your ad appears when someone searches Google or Bing for caregiver jobs in your area. You only pay when they click.",
+    platforms: [
+      { name: "Google Ads (Search)", tip: "Shows your ad at the top of Google when someone searches 'caregiver jobs near me'. The #1 way people find jobs online.", estimated: "1K-10K reach", cpa: "$20-50" },
+      { name: "Google Ads (Display)", tip: "Banner ads that appear on websites across the internet. Good for brand awareness.", estimated: "10K-100K reach", cpa: "$5-20" },
+      { name: "Bing/Microsoft Ads", tip: "Same concept as Google Ads but on Bing. Lower competition = cheaper clicks. Often used by older demographics.", estimated: "500-5K reach", cpa: "$15-40" },
+      { name: "YouTube Ads", tip: "Video ads that play before YouTube videos. Great for showing what it's like to work for your agency.", estimated: "5K-50K reach", cpa: "$10-30" },
+    ],
+  },
+  {
+    label: "🌐 SEO & Organic",
+    description: "Free traffic from search engines. Takes longer to build but costs nothing per click. Halevai builds this for you automatically.",
+    platforms: [
+      { name: "Google for Jobs", tip: "Your job listing appears directly in Google search results for free. Halevai auto-formats your postings.", estimated: "500-5K reach", cpa: "Free" },
+      { name: "SEO Landing Pages", tip: "Custom pages optimized to rank on Google for searches like 'caregiver jobs in [your county]'. Halevai builds these.", estimated: "100-2K/mo reach", cpa: "Free" },
+      { name: "Google Business Profile", tip: "Your agency's Google listing. When people search your agency name, this is what they see. Builds trust.", estimated: "200-2K reach", cpa: "Free" },
+    ],
+  },
+  {
+    label: "💼 Job Boards",
+    description: "Websites where people specifically go to look for jobs. Caregivers actively searching will find your listing here.",
+    platforms: [
+      { name: "Indeed", tip: "The #1 job site. Most caregivers check Indeed first. Sponsored listings get 3-5x more applicants.", estimated: "500-2K reach", cpa: "$15-40" },
+      { name: "ZipRecruiter", tip: "Sends your listing to 100+ job boards at once. AI matches your posting with qualified candidates.", estimated: "300-1.5K reach", cpa: "$20-50" },
+      { name: "Care.com", tip: "Specifically for caregiving jobs. Pre-qualified candidates who already have caregiving experience.", estimated: "200-800 reach", cpa: "$25-60" },
+      { name: "Craigslist", tip: "Free to post in most areas. Simple and effective, especially in urban markets.", estimated: "100-500 reach", cpa: "Free" },
+      { name: "Glassdoor", tip: "Job seekers research companies here. Good reviews + job listings = more trust.", estimated: "200-1K reach", cpa: "$30-60" },
+    ],
+  },
+  {
+    label: "🏘️ Community & Grassroots",
+    description: "Offline and local outreach. Lower tech, but builds deep trust in communities where many caregivers come from.",
+    platforms: [
+      { name: "Churches/Cultural Centers", tip: "Flyers and announcements at local churches, temples, community centers. Especially effective in immigrant communities.", estimated: "50-200 reach", cpa: "$0-5" },
+      { name: "Senior Centers", tip: "Post flyers where family caregivers already visit. They often know others who'd be interested.", estimated: "30-100 reach", cpa: "$0-5" },
+      { name: "Job Fairs", tip: "Set up a table at local job fairs. Meet candidates face-to-face. Halevai generates your materials.", estimated: "100-500 reach", cpa: "$10-30" },
+      { name: "Community Events", tip: "Sponsor or attend local events. Great for word-of-mouth in your target neighborhoods.", estimated: "50-300 reach", cpa: "$5-20" },
+      { name: "Employee Referrals", tip: "Your current caregivers refer friends/family. Highest quality hires. Halevai tracks the referral bonus.", estimated: "10-50 reach", cpa: "$200/hire" },
+    ],
+  },
 ];
+
+const ALL_PLATFORMS = PLATFORM_CATEGORIES.flatMap(c => c.platforms);
 
 const CampaignBuilder = () => {
   const [step, setStep] = useState(0);
@@ -52,8 +90,16 @@ const CampaignBuilder = () => {
     setSelectedPlatforms(prev => prev.includes(name) ? prev.filter(p => p !== name) : [...prev, name]);
   };
   const selectAll = (cat: string) => {
-    const names = PLATFORMS.filter(p => cat === "paid" ? p.cpa !== "Free" && p.cpa !== "$0-5" : p.cpa === "Free" || p.cpa === "$0-5").map(p => p.name);
+    const names = ALL_PLATFORMS.filter(p => cat === "paid" ? p.cpa !== "Free" && p.cpa !== "$0-5" : p.cpa === "Free" || p.cpa === "$0-5").map(p => p.name);
     setSelectedPlatforms(prev => [...new Set([...prev, ...names])]);
+  };
+  const selectCategory = (catLabel: string) => {
+    const cat = PLATFORM_CATEGORIES.find(c => c.label === catLabel);
+    if (!cat) return;
+    const names = cat.platforms.map(p => p.name);
+    const allSelected = names.every(n => selectedPlatforms.includes(n));
+    if (allSelected) setSelectedPlatforms(prev => prev.filter(p => !names.includes(p)));
+    else setSelectedPlatforms(prev => [...new Set([...prev, ...names])]);
   };
 
   const handleGenerate = async () => {
@@ -127,14 +173,36 @@ const CampaignBuilder = () => {
                     <Button size="sm" variant="outline" onClick={() => selectAll("free")}>Select All Free</Button>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {PLATFORMS.map(p => (
-                    <Card key={p.name} onClick={() => togglePlatform(p.name)} className={`cursor-pointer transition-all p-3 ${selectedPlatforms.includes(p.name) ? "border-primary bg-primary/10" : "bg-secondary/30 halevai-border hover:border-primary/30"}`}>
-                      <div className="text-sm font-medium text-foreground">{p.name}</div>
-                      <div className="text-[10px] text-muted-foreground">{p.estimated}</div>
-                      <div className="text-[10px] text-primary font-data">{p.cpa}</div>
-                    </Card>
-                  ))}
+                <div className="space-y-5">
+                  {PLATFORM_CATEGORIES.map(cat => {
+                    const catNames = cat.platforms.map(p => p.name);
+                    const selectedInCat = catNames.filter(n => selectedPlatforms.includes(n)).length;
+                    return (
+                      <div key={cat.label} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-sm font-semibold text-foreground">{cat.label}</h3>
+                            <p className="text-xs text-muted-foreground max-w-xl">{cat.description}</p>
+                          </div>
+                          <Button size="sm" variant="outline" className="text-xs shrink-0" onClick={() => selectCategory(cat.label)}>
+                            {selectedInCat === catNames.length ? "Deselect All" : "Select All"}
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                          {cat.platforms.map(p => (
+                            <Card key={p.name} onClick={() => togglePlatform(p.name)} className={`cursor-pointer transition-all p-3 ${selectedPlatforms.includes(p.name) ? "border-primary bg-primary/10" : "bg-secondary/30 halevai-border hover:border-primary/30"}`}>
+                              <div className="text-sm font-medium text-foreground">{p.name}</div>
+                              <div className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{p.tip}</div>
+                              <div className="flex items-center justify-between mt-2">
+                                <span className="text-[10px] text-muted-foreground">{p.estimated}</span>
+                                <span className="text-[10px] text-primary font-data font-bold">{p.cpa}</span>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <p className="text-xs text-muted-foreground">{selectedPlatforms.length} platform(s) selected</p>
               </div>
