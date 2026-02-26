@@ -327,6 +327,217 @@ async function handleAuthExpiryAlert(sb: any, aid: string, adminUserId?: string)
   return count;
 }
 
+// === Advanced Sequence Processing ===
+
+async function handleProcessSequences(sb: any, aid: string, supabaseUrl: string, agencyName: string, rate: string, agencyPhone: string, adminUserId?: string) {
+  // Get active enrollments
+  const { data: enrollments } = await sb.from("sequence_enrollments")
+    .select("*").eq("agency_id", aid).eq("status", "active");
+
+  let count = 0;
+
+  for (const enrollment of enrollments || []) {
+    try {
+      const currentStepNum = enrollment.current_step || 1;
+      const { data: allSteps } = await sb.from("sequence_steps")
+        .select("*").eq("sequence_id", enrollment.sequence_id).order("step_number");
+
+      if (!allSteps || allSteps.length === 0) continue;
+
+      const currentStep = allSteps.find((s: any) => s.step_number === currentStepNum);
+      if (!currentStep || !currentStep.active) continue;
+
+      // Check delay
+      const lastAction = enrollment.last_step_at || enrollment.started_at;
+      if (lastAction) {
+        const elapsed = (Date.now() - new Date(lastAction).getTime()) / 3600000;
+        if (elapsed < (currentStep.delay_hours || 0)) continue; // Not ready yet
+      }
+
+      const stepType = currentStep.step_type || "message";
+
+      // Get the caregiver/candidate for context
+      const caregiverId = enrollment.caregiver_id;
+      const candidateId = enrollment.sourced_candidate_id;
+      let contact: any = null;
+      if (caregiverId) {
+        const { data: cg } = await sb.from("caregivers").select("*").eq("id", caregiverId).maybeSingle();
+        contact = cg;
+      } else if (candidateId) {
+        const { data: sc } = await sb.from("sourced_candidates").select("*").eq("id", candidateId).maybeSingle();
+        contact = sc;
+      }
+      if (!contact) continue;
+
+      let nextStepNum: number | null = null;
+
+      if (stepType === "message") {
+        // Send message
+        const to = currentStep.channel === "sms" ? contact.phone : contact.email;
+        if (to) {
+          const body = (currentStep.body || "")
+            .replace(/\{name\}/g, contact.full_name || "")
+            .replace(/\{pay_rate\}/g, rate)
+            .replace(/\{agency_name\}/g, agencyName)
+            .replace(/\{phone\}/g, agencyPhone)
+            .replace(/\{state\}/g, contact.state || "")
+            .replace(/\{county\}/g, contact.county || "");
+
+          await callEdgeFn(supabaseUrl, "send-message", {
+            agency_id: aid,
+            channel: currentStep.channel,
+            to,
+            body,
+            subject: currentStep.channel === "email" ? currentStep.subject : undefined,
+            template: `sequence_step_${currentStep.step_number}`,
+            related_type: caregiverId ? "caregiver" : "sourced_candidate",
+            related_id: caregiverId || candidateId,
+          });
+        }
+        nextStepNum = currentStepNum + 1;
+      } else if (stepType === "condition") {
+        // Evaluate condition
+        let result = false;
+        const condType = currentStep.condition_type;
+        const condValue = currentStep.condition_value;
+
+        if (condType === "replied" || condType === "no_reply") {
+          // Check inbound_messages for this contact since last action
+          const contactField = contact.phone || contact.email;
+          if (contactField) {
+            const { data: inbound } = await sb.from("inbound_messages")
+              .select("id").eq("agency_id", aid)
+              .ilike("from_contact", `%${contactField.slice(-10)}%`)
+              .gt("created_at", lastAction || enrollment.started_at)
+              .limit(1);
+            const hasReply = (inbound || []).length > 0;
+            result = condType === "replied" ? hasReply : !hasReply;
+          }
+        } else if (condType === "keyword_match" && condValue) {
+          const contactField = contact.phone || contact.email;
+          if (contactField) {
+            const { data: inbound } = await sb.from("inbound_messages")
+              .select("body").eq("agency_id", aid)
+              .ilike("from_contact", `%${contactField.slice(-10)}%`)
+              .gt("created_at", lastAction || enrollment.started_at);
+            result = (inbound || []).some((m: any) =>
+              m.body && m.body.toLowerCase().includes(condValue.toLowerCase())
+            );
+          }
+        } else if (condType === "status_changed" && condValue && caregiverId) {
+          result = contact.status === condValue;
+        } else if (condType === "score_above" && condValue && caregiverId) {
+          result = (contact.lead_score || 0) >= Number(condValue);
+        } else if (condType === "score_below" && condValue && caregiverId) {
+          result = (contact.lead_score || 0) < Number(condValue);
+        } else if (condType === "time_elapsed" && condValue) {
+          const elapsed = (Date.now() - new Date(lastAction || enrollment.started_at).getTime()) / 3600000;
+          result = elapsed >= Number(condValue);
+        }
+
+        // Determine next step based on result
+        if (result && currentStep.true_next_step_id) {
+          const trueStep = allSteps.find((s: any) => s.id === currentStep.true_next_step_id);
+          nextStepNum = trueStep ? trueStep.step_number : currentStepNum + 1;
+        } else if (!result && currentStep.false_next_step_id) {
+          const falseStep = allSteps.find((s: any) => s.id === currentStep.false_next_step_id);
+          nextStepNum = falseStep ? falseStep.step_number : currentStepNum + 1;
+        } else {
+          nextStepNum = currentStepNum + 1;
+        }
+      } else if (stepType === "action") {
+        const actionType = currentStep.action_type;
+        const actionConfig = currentStep.action_config || {};
+
+        if (actionType === "update_status" && actionConfig.status && caregiverId) {
+          await sb.from("caregivers").update({ status: actionConfig.status }).eq("id", caregiverId);
+        } else if (actionType === "create_notification" && adminUserId) {
+          await sb.from("notifications").insert({
+            agency_id: aid, user_id: adminUserId,
+            title: actionConfig.title || "Sequence Action",
+            body: actionConfig.body || `Sequence action triggered for ${contact.full_name}`,
+            type: "sequence_action", link: "/caregivers",
+          });
+        } else if (actionType === "update_score" && actionConfig.score_delta && caregiverId) {
+          const newScore = Math.max(0, Math.min(100, (contact.lead_score || 0) + Number(actionConfig.score_delta)));
+          await sb.from("caregivers").update({ lead_score: newScore }).eq("id", caregiverId);
+        } else if (actionType === "enroll_in_sequence" && actionConfig.sequence_id) {
+          await sb.from("sequence_enrollments").insert({
+            agency_id: aid, sequence_id: actionConfig.sequence_id,
+            caregiver_id: caregiverId, sourced_candidate_id: candidateId,
+            status: "active", current_step: 1,
+          });
+        } else if (actionType === "remove_from_sequence") {
+          await sb.from("sequence_enrollments").update({ status: "cancelled" }).eq("id", enrollment.id);
+          continue; // Skip advancing
+        }
+        nextStepNum = currentStepNum + 1;
+      } else if (stepType === "wait") {
+        // Wait: check optional condition during wait
+        if (currentStep.condition_type) {
+          // Re-use condition logic
+          let condMet = false;
+          const contactField = contact.phone || contact.email;
+          if (currentStep.condition_type === "replied" && contactField) {
+            const { data: inbound } = await sb.from("inbound_messages")
+              .select("id").eq("agency_id", aid)
+              .ilike("from_contact", `%${contactField.slice(-10)}%`)
+              .gt("created_at", lastAction || enrollment.started_at).limit(1);
+            condMet = (inbound || []).length > 0;
+          }
+          if (condMet) {
+            nextStepNum = currentStepNum + 1; // Condition met, advance
+          } else {
+            continue; // Still waiting
+          }
+        } else {
+          nextStepNum = currentStepNum + 1; // Pure wait, already passed delay check
+        }
+      }
+
+      // Advance enrollment
+      if (nextStepNum !== null) {
+        const hasMoreSteps = allSteps.some((s: any) => s.step_number === nextStepNum);
+        if (hasMoreSteps) {
+          await sb.from("sequence_enrollments").update({
+            current_step: nextStepNum,
+            last_step_at: new Date().toISOString(),
+          }).eq("id", enrollment.id);
+        } else {
+          // Sequence complete
+          await sb.from("sequence_enrollments").update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+            last_step_at: new Date().toISOString(),
+          }).eq("id", enrollment.id);
+        }
+        count++;
+      }
+
+      // Log
+      await sb.from("agent_activity_log").insert({
+        agency_id: aid, agent_type: "sequence_engine",
+        action: `processed_${stepType}_step`,
+        entity_type: caregiverId ? "caregiver" : "sourced_candidate",
+        entity_id: caregiverId || candidateId,
+        details: `Step ${currentStepNum} (${stepType}) of sequence ${enrollment.sequence_id}`,
+        success: true,
+      });
+    } catch (err) {
+      console.error(`Error processing enrollment ${enrollment.id}:`, err);
+      await sb.from("agent_activity_log").insert({
+        agency_id: aid, agent_type: "sequence_engine",
+        action: "sequence_step_error",
+        entity_id: enrollment.id,
+        error_message: err.message,
+        success: false,
+      });
+    }
+  }
+
+  return count;
+}
+
 // === Main handler ===
 
 Deno.serve(async (req) => {
@@ -421,7 +632,7 @@ Deno.serve(async (req) => {
               actionsCount = await handleAuthExpiryAlert(sb, aid, adminUserId);
               break;
             case "process_sequences":
-              // Handled by separate sequence processing logic
+              actionsCount = await handleProcessSequences(sb, aid, supabaseUrl, agencyName, rate, agencyPhone, adminUserId);
               break;
             case "competitor_monitoring":
             case "poach_detector":
