@@ -20,3 +20,12 @@ verify_jwt = false
 
 [functions.discover-sources]
 verify_jwt = false
+
+[functions.run-automations]
+verify_jwt = false
+
+[functions.generate-briefing]
+verify_jwt = false
+
+[functions.score-leads]
+verify_jwt = false
