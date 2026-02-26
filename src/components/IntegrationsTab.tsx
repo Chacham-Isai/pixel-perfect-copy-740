@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, CheckCircle2, XCircle, Eye, EyeOff, Plug, AlertTriangle } from "lucide-react";
+import { Loader2, Save, CheckCircle2, XCircle, Eye, EyeOff, Plug, AlertTriangle, Copy, Webhook } from "lucide-react";
 import { useApiKeys, useSaveApiKey } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { Separator } from "@/components/ui/separator";
 
 interface IntegrationField {
   keyName: string;
@@ -115,10 +116,73 @@ export default function IntegrationsTab() {
     return <Badge className="bg-muted text-muted-foreground border-border"><XCircle className="h-3 w-3 mr-1" />Not configured</Badge>;
   };
 
+  const webhookUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || "jpyjqnucuebmknnykmyf"}.supabase.co/functions/v1/webhook-inbound`;
+
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    toast.success("Webhook URL copied!");
+  };
+
   if (isLoading) return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading integrations...</div>;
 
   return (
     <div className="space-y-4">
+      {/* Webhook Configuration */}
+      <Card className="bg-card halevai-border">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <Webhook className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle className="text-base">Inbound Webhooks</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Receive SMS replies and email responses from caregivers</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Webhook URL</Label>
+            <div className="flex gap-2">
+              <Input value={webhookUrl} readOnly className="bg-secondary border-border font-mono text-xs" />
+              <Button size="sm" variant="outline" onClick={copyWebhookUrl}>
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+
+          <Separator className="my-3" />
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Twilio SMS Webhook</Label>
+            <p className="text-xs text-muted-foreground">In your Twilio console, set this URL as the webhook for incoming messages on your phone number.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">SendGrid Inbound Parse</Label>
+            <p className="text-xs text-muted-foreground">In SendGrid → Settings → Inbound Parse → Add Host & URL. Use the webhook URL above.</p>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Inbound Domain</Label>
+                <StatusBadge keyName="sendgrid_inbound_domain" />
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={formValues["sendgrid_inbound_domain"] || ""}
+                  onChange={e => setFormValues(v => ({ ...v, sendgrid_inbound_domain: e.target.value }))}
+                  placeholder="inbound.youragency.com"
+                  className="bg-secondary border-border text-xs"
+                  disabled={isViewer}
+                />
+                {!isViewer && (
+                  <Button size="sm" variant="outline" onClick={() => handleSave("sendgrid_inbound_domain")} disabled={savingKey === "sendgrid_inbound_domain"}>
+                    {savingKey === "sendgrid_inbound_domain" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {INTEGRATIONS.map((section) => {
         const allConfigured = section.fields.every(f => getKeyStatus(f.keyName) !== "not_configured");
         const anyConnected = section.fields.some(f => getKeyStatus(f.keyName) === "connected");
