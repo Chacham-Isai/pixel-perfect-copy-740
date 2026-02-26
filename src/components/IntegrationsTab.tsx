@@ -25,6 +25,34 @@ interface IntegrationSection {
 
 const INTEGRATIONS: IntegrationSection[] = [
   {
+    name: "Facebook/Meta Ads",
+    description: "Post recruitment campaigns directly to Facebook & Instagram as employment ads.",
+    fields: [
+      { keyName: "facebook_access_token", label: "Access Token", placeholder: "Your Meta access token" },
+      { keyName: "facebook_ad_account_id", label: "Ad Account ID", placeholder: "act_123456789" },
+    ],
+    enabled: true,
+  },
+  {
+    name: "Google Ads",
+    description: "Create and manage Google Ads campaigns for caregiver recruitment.",
+    fields: [
+      { keyName: "google_ads_developer_token", label: "Developer Token", placeholder: "Your Google Ads developer token" },
+      { keyName: "google_ads_client_id", label: "OAuth Client ID", placeholder: "xxx.apps.googleusercontent.com" },
+      { keyName: "google_ads_client_secret", label: "OAuth Client Secret", placeholder: "Your client secret" },
+      { keyName: "google_ads_refresh_token", label: "Refresh Token", placeholder: "Your OAuth refresh token" },
+    ],
+    enabled: true,
+  },
+  {
+    name: "Indeed",
+    description: "Post job listings to Indeed for caregiver recruitment.",
+    fields: [
+      { keyName: "indeed_api_key", label: "API Key", placeholder: "Your Indeed Sponsored Jobs API Key" },
+    ],
+    enabled: true,
+  },
+  {
     name: "Twilio (SMS)",
     description: "Send SMS messages to caregivers for follow-ups, welcome messages, and enrollment reminders.",
     fields: [
@@ -64,6 +92,14 @@ const INTEGRATIONS: IntegrationSection[] = [
     description: "AI-powered phone screening calls for sourced candidates.",
     fields: [
       { keyName: "bland_ai_api_key", label: "API Key", placeholder: "Your Bland AI API Key" },
+    ],
+    enabled: true,
+  },
+  {
+    name: "ZipRecruiter",
+    description: "Post caregiver job listings to ZipRecruiter.",
+    fields: [
+      { keyName: "ziprecruiter_api_key", label: "API Key", placeholder: "Your ZipRecruiter API Key" },
     ],
     enabled: true,
   },

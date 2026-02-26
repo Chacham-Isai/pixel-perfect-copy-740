@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Megaphone, Plus, TrendingUp, DollarSign, MousePointer, Users, Sparkles, Search, Globe, BarChart3, FileText, Zap, Star, AlertTriangle, ExternalLink, Loader2, ChevronDown, ChevronUp, Mail, MessageSquare, Trash2 } from "lucide-react";
+import { Megaphone, Plus, TrendingUp, DollarSign, MousePointer, Users, Sparkles, Search, Globe, BarChart3, FileText, Zap, Star, AlertTriangle, ExternalLink, Loader2, ChevronDown, ChevronUp, Mail, MessageSquare, Trash2, Send, Facebook, Chrome } from "lucide-react";
+import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { useCampaigns, useReferralSources, useCampaignTemplates, useCampaignSequences, useSequenceEnrollments, useAgency } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -116,10 +117,26 @@ const statusColor = (s: string | null) => {
 
 const CHART_COLORS = ["hsl(195,100%,50%)", "hsl(270,80%,60%)", "hsl(150,70%,50%)", "hsl(40,90%,60%)", "hsl(0,84%,60%)"];
 
+const platformStatusColor = (s: string | null) => {
+  if (s === "active" || s === "live") return "bg-green-500/20 text-green-400 border-green-500/30";
+  if (s === "paused") return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+  if (s === "draft") return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+  if (s === "error" || s === "rejected") return "bg-red-500/20 text-red-400 border-red-500/30";
+  return "bg-muted text-muted-foreground border-border";
+};
+
+const channelIcon = (ch: string | null) => {
+  if (ch === "facebook") return <Facebook className="h-3 w-3" />;
+  if (ch === "google_ads") return <Chrome className="h-3 w-3" />;
+  if (ch === "indeed") return <Globe className="h-3 w-3" />;
+  return null;
+};
+
 // Campaign card grid component
-const CampaignGrid = ({ campaigns, onOptimize }: { campaigns: any[]; onOptimize: (id: string) => void }) => {
+const CampaignGrid = ({ campaigns, onOptimize, onPostTo }: { campaigns: any[]; onOptimize: (id: string) => void; onPostTo: (id: string, platform: string) => void }) => {
   if (campaigns.length === 0) return <p className="text-center text-muted-foreground py-8">No campaigns in this category</p>;
   return (
+    <TooltipProvider>
     <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
       {campaigns.map((c) => {
         const cpa = c.conversions > 0 ? c.spend / c.conversions : 0;
@@ -130,13 +147,31 @@ const CampaignGrid = ({ campaigns, onOptimize }: { campaigns: any[]; onOptimize:
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
                   <h3 className="font-semibold text-foreground text-sm">{c.campaign_name}</h3>
-                  <div className="flex gap-1 mt-1">
+                  <div className="flex gap-1 mt-1 flex-wrap">
                     <Badge variant="outline" className="border-primary/30 text-primary text-[10px]">{c.state || "—"}</Badge>
-                    <Badge variant="outline" className="border-border text-muted-foreground text-[10px]">{c.channel || "—"}</Badge>
+                    {c.channel && (
+                      <Badge variant="outline" className="text-[10px] border-border gap-0.5">
+                        {channelIcon(c.channel)} {c.channel}
+                      </Badge>
+                    )}
                   </div>
                 </div>
-                <Badge className={`${statusColor(c.status)} text-[10px]`}>{c.status}</Badge>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge className={`${statusColor(c.status)} text-[10px]`}>{c.status}</Badge>
+                  {c.platform_status && c.platform_status !== "draft" && (
+                    <Badge className={`${platformStatusColor(c.platform_status)} text-[10px]`}>
+                      {c.platform_status}
+                    </Badge>
+                  )}
+                </div>
               </div>
+              {c.external_id && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                  <ExternalLink className="h-3 w-3" />
+                  <span className="font-mono truncate max-w-[120px]">{c.external_id}</span>
+                  {c.external_url && <a href={c.external_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">View</a>}
+                </div>
+              )}
               {overTarget && (
                 <div className="flex items-center gap-1 text-destructive text-xs mb-2">
                   <AlertTriangle className="h-3 w-3" /> CPA exceeds 2× target — consider pausing
@@ -152,15 +187,37 @@ const CampaignGrid = ({ campaigns, onOptimize }: { campaigns: any[]; onOptimize:
                 <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => onOptimize(c.id)}>
                   <Sparkles className="h-3 w-3 mr-1" /> AI Optimize
                 </Button>
-                <Button size="sm" variant="outline" className="text-xs" onClick={() => {}}>
-                  <FileText className="h-3 w-3" />
-                </Button>
+                <UiTooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => onPostTo(c.id, "facebook")}>
+                      <Facebook className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Post to Facebook</TooltipContent>
+                </UiTooltip>
+                <UiTooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => onPostTo(c.id, "google_ads")}>
+                      <Chrome className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Post to Google Ads</TooltipContent>
+                </UiTooltip>
+                <UiTooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => onPostTo(c.id, "indeed")}>
+                      <Globe className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Post to Indeed</TooltipContent>
+                </UiTooltip>
               </div>
             </CardContent>
           </Card>
         );
       })}
     </div>
+    </TooltipProvider>
   );
 };
 
@@ -216,6 +273,24 @@ const Campaigns = () => {
     setOptimizing(null);
   };
 
+  const handlePostTo = async (campaignId: string, platform: string) => {
+    toast.loading(`Posting to ${platform}...`, { id: "post-to-ads" });
+    try {
+      const { data, error } = await supabase.functions.invoke("post-to-ads", {
+        body: { action: "post", agencyId, campaignId, platform },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.message || data.error, { id: "post-to-ads" });
+      } else {
+        toast.success(data?.message || `Posted to ${platform}!`, { id: "post-to-ads" });
+        qc.invalidateQueries({ queryKey: ["campaigns"] });
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Posting failed", { id: "post-to-ads" });
+    }
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -261,10 +336,10 @@ const Campaigns = () => {
               <TabsTrigger value="sequences"><Zap className="h-3 w-3 mr-1" />Sequences ({(sequences || []).length})</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="recruitment"><CampaignGrid campaigns={byType("recruitment")} onOptimize={handleOptimize} /></TabsContent>
-            <TabsContent value="marketing"><CampaignGrid campaigns={byType("marketing")} onOptimize={handleOptimize} /></TabsContent>
-            <TabsContent value="social"><CampaignGrid campaigns={byType("social")} onOptimize={handleOptimize} /></TabsContent>
-            <TabsContent value="community"><CampaignGrid campaigns={byType("community")} onOptimize={handleOptimize} /></TabsContent>
+            <TabsContent value="recruitment"><CampaignGrid campaigns={byType("recruitment")} onOptimize={handleOptimize} onPostTo={handlePostTo} /></TabsContent>
+            <TabsContent value="marketing"><CampaignGrid campaigns={byType("marketing")} onOptimize={handleOptimize} onPostTo={handlePostTo} /></TabsContent>
+            <TabsContent value="social"><CampaignGrid campaigns={byType("social")} onOptimize={handleOptimize} onPostTo={handlePostTo} /></TabsContent>
+            <TabsContent value="community"><CampaignGrid campaigns={byType("community")} onOptimize={handleOptimize} onPostTo={handlePostTo} /></TabsContent>
 
             <TabsContent value="sources">
               <div className="space-y-4">
