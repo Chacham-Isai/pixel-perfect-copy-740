@@ -336,8 +336,12 @@ export type Database = {
           agency_id: string
           business_name: string | null
           created_at: string | null
+          custom_domain: string | null
           email: string | null
+          email_from_name: string | null
+          email_reply_to: string | null
           facebook_url: string | null
+          hide_halevai_branding: boolean | null
           id: string
           industry: string | null
           instagram_url: string | null
@@ -354,8 +358,12 @@ export type Database = {
           agency_id: string
           business_name?: string | null
           created_at?: string | null
+          custom_domain?: string | null
           email?: string | null
+          email_from_name?: string | null
+          email_reply_to?: string | null
           facebook_url?: string | null
+          hide_halevai_branding?: boolean | null
           id?: string
           industry?: string | null
           instagram_url?: string | null
@@ -372,8 +380,12 @@ export type Database = {
           agency_id?: string
           business_name?: string | null
           created_at?: string | null
+          custom_domain?: string | null
           email?: string | null
+          email_from_name?: string | null
+          email_reply_to?: string | null
           facebook_url?: string | null
+          hide_halevai_branding?: boolean | null
           id?: string
           industry?: string | null
           instagram_url?: string | null
@@ -517,9 +529,14 @@ export type Database = {
           date_from: string | null
           date_to: string | null
           enrollment_conversion_rate: number | null
+          external_id: string | null
+          external_url: string | null
           id: string
           impressions: number | null
+          last_synced_at: string | null
           pause_spend_threshold: number | null
+          platform_status: string | null
+          posted_at: string | null
           spend: number | null
           state: string | null
           status: string | null
@@ -544,9 +561,14 @@ export type Database = {
           date_from?: string | null
           date_to?: string | null
           enrollment_conversion_rate?: number | null
+          external_id?: string | null
+          external_url?: string | null
           id?: string
           impressions?: number | null
+          last_synced_at?: string | null
           pause_spend_threshold?: number | null
+          platform_status?: string | null
+          posted_at?: string | null
           spend?: number | null
           state?: string | null
           status?: string | null
@@ -571,9 +593,14 @@ export type Database = {
           date_from?: string | null
           date_to?: string | null
           enrollment_conversion_rate?: number | null
+          external_id?: string | null
+          external_url?: string | null
           id?: string
           impressions?: number | null
+          last_synced_at?: string | null
           pause_spend_threshold?: number | null
+          platform_status?: string | null
+          posted_at?: string | null
           spend?: number | null
           state?: string | null
           status?: string | null

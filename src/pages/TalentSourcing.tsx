@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // Pre-built sequences for display
 const OUTREACH_SEQUENCES = {
@@ -49,6 +50,7 @@ const OUTREACH_SEQUENCES = {
 };
 
 const TalentSourcing = () => {
+  usePageTitle("Talent Sourcing");
   const { data: campaigns, isLoading: loadingCampaigns, refetch: refetchCampaigns } = useSourcingCampaigns();
   const { data: candidates, isLoading: loadingCandidates, refetch: refetchCandidates } = useSourcedCandidates();
   const { data: activityLog, isLoading: loadingActivity, refetch: refetchActivity } = useAgentActivityLog();

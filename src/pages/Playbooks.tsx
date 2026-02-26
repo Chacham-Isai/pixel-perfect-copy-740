@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const categoryColors: Record<string, string> = {
   recruitment: "border-blue-400/30 text-blue-400",
@@ -23,6 +24,7 @@ const categoryColors: Record<string, string> = {
 };
 
 const Playbooks = () => {
+  usePageTitle("Playbooks");
   const { data: playbooks, isLoading } = usePlaybooks();
   const { agencyId } = useAuth();
   const all = playbooks || [];
