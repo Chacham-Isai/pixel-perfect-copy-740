@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
+import { hasPermission } from "@/lib/permissions";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
 import logo from "@/assets/logo-transparent.png";
@@ -69,8 +70,9 @@ const navSections = [
 ];
 
 export function AppSidebar() {
-  const { signOut } = useAuth();
+  const { signOut, agencyRole } = useAuth();
   const { data: unreadCount } = useUnreadCount();
+  const canManageSettings = hasPermission(agencyRole, "manage_api_keys");
   return (
     <Sidebar className="border-r border-border">
       <Link to="/dashboard" className="p-5 flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -86,7 +88,14 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {section.items.map((item) => (
+                {section.items
+                  .filter(item => {
+                    // Hide Automations and Settings for non-admin roles
+                    if (item.url === "/automations" && !hasPermission(agencyRole, "run_automations")) return false;
+                    if (item.url === "/settings" && !canManageSettings && item.url === "/settings") return false;
+                    return true;
+                  })
+                  .map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <NavLink

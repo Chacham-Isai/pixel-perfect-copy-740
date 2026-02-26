@@ -9,7 +9,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Filter, Download, Plus, Phone, Mail, MapPin, Clock, Loader2, DollarSign } from "lucide-react";
+import { Search, Filter, Download, Plus, Phone, Mail, MapPin, Clock, Loader2, DollarSign, Shield } from "lucide-react";
+import { usePermission } from "@/components/PermissionGate";
 import { useCaregivers, usePayRateIntel, type Caregiver } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -124,6 +125,8 @@ const Caregivers = () => {
   const { data: caregivers, isLoading } = useCaregivers();
   const { data: rateIntel } = usePayRateIntel();
   const { agencyId } = useAuth();
+  const canEdit = usePermission("edit_caregivers");
+  const canMessage = usePermission("send_messages");
   const qc = useQueryClient();
   const [selectedCaregiver, setSelectedCaregiver] = useState<Caregiver | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -239,6 +242,7 @@ const Caregivers = () => {
             <h1 className="text-2xl font-bold text-foreground">Caregiver Pipeline</h1>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleExportCSV}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
+              {canEdit ? (
               <Dialog open={addOpen} onOpenChange={setAddOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="bg-primary text-primary-foreground"><Plus className="h-4 w-4 mr-1" /> Add Caregiver</Button>
@@ -315,8 +319,11 @@ const Caregivers = () => {
                       {saving ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : <><Plus className="h-4 w-4 mr-1" />Add Caregiver</>}
                     </Button>
                   </div>
-                </DialogContent>
+              </DialogContent>
               </Dialog>
+              ) : (
+                <Badge variant="secondary" className="text-xs gap-1"><Shield className="h-3 w-3" /> View Only</Badge>
+              )}
             </div>
           </div>
           <p className="text-sm text-muted-foreground mt-1">Track every caregiver from first contact to active enrollment. Drag cards between columns to update status.</p>
@@ -430,8 +437,8 @@ const Caregivers = () => {
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <Button size="sm" className="bg-primary text-primary-foreground flex-1" onClick={() => setComposeChannel("sms")} disabled={!selectedCaregiver.phone}>Send SMS</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setComposeChannel("email")} disabled={!selectedCaregiver.email}>Send Email</Button>
+                  <Button size="sm" className="bg-primary text-primary-foreground flex-1" onClick={() => setComposeChannel("sms")} disabled={!selectedCaregiver.phone || !canMessage}>Send SMS</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setComposeChannel("email")} disabled={!selectedCaregiver.email || !canMessage}>Send Email</Button>
                   <Button size="sm" variant="outline" className="flex-1">Schedule Screen</Button>
                 </div>
               </div>

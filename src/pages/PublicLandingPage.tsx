@@ -34,6 +34,7 @@ interface AgencyInfo {
   email: string | null;
   logo_url: string | null;
   website_url: string | null;
+  hide_halevai_branding: boolean | null;
 }
 
 const PublicLandingPage = () => {
@@ -70,7 +71,11 @@ const PublicLandingPage = () => {
 
       // Fetch agency info
       const { data: ag } = await supabase.from("agencies").select("name, phone, email, logo_url, website_url").eq("id", lp.agency_id).single();
-      if (ag) setAgency(ag);
+      if (ag) setAgency({ ...ag, hide_halevai_branding: false });
+
+      // Check business_config for white-label setting
+      const { data: bc } = await supabase.from("business_config").select("hide_halevai_branding").eq("agency_id", lp.agency_id).maybeSingle();
+      if (bc && ag) setAgency({ ...ag, hide_halevai_branding: bc.hide_halevai_branding });
 
       // Track page view
       await supabase.from("landing_page_events").insert({
@@ -319,6 +324,9 @@ const PublicLandingPage = () => {
             {agency?.email && <a href={`mailto:${agency.email}`} className="flex items-center gap-1 hover:text-primary"><Mail className="h-4 w-4" />{agency.email}</a>}
           </div>
           <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} {agency?.name}. All rights reserved.</p>
+          {!agency?.hide_halevai_branding && (
+            <p className="text-xs text-muted-foreground/50 mt-2">Built with Halevai.ai</p>
+          )}
         </div>
       </footer>
     </div>

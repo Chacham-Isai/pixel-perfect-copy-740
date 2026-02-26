@@ -31,6 +31,7 @@ const Settings = () => {
     business_name: "", tagline: "", phone: "", email: "", website_url: "",
     primary_color: "", secondary_color: "", accent_color: "", logo_url: "",
     facebook_url: "", instagram_url: "", linkedin_url: "",
+    hide_halevai_branding: false, custom_domain: "", email_from_name: "", email_reply_to: "",
   });
   const [savingBrand, setSavingBrand] = useState(false);
 
@@ -53,6 +54,10 @@ const Settings = () => {
         accent_color: config.accent_color || "", logo_url: config.logo_url || "",
         facebook_url: config.facebook_url || "", instagram_url: config.instagram_url || "",
         linkedin_url: config.linkedin_url || "",
+        hide_halevai_branding: config.hide_halevai_branding || false,
+        custom_domain: config.custom_domain || "",
+        email_from_name: config.email_from_name || "",
+        email_reply_to: config.email_reply_to || "",
       });
     }
   }, [config]);
@@ -191,6 +196,24 @@ const Settings = () => {
                   <div className="space-y-2"><Label>Instagram URL</Label><Input value={brandForm.instagram_url} onChange={e => setBrandForm(f => ({ ...f, instagram_url: e.target.value }))} placeholder="https://instagram.com/..." className="bg-secondary border-border" /></div>
                   <div className="space-y-2"><Label>LinkedIn URL</Label><Input value={brandForm.linkedin_url} onChange={e => setBrandForm(f => ({ ...f, linkedin_url: e.target.value }))} placeholder="https://linkedin.com/..." className="bg-secondary border-border" /></div>
                 </div>
+
+                {/* White-Label Settings */}
+                <div className="border-t border-border pt-4 mt-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-3">White-Label Settings</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Email From Name</Label><Input value={brandForm.email_from_name} onChange={e => setBrandForm(f => ({ ...f, email_from_name: e.target.value }))} placeholder="Your Agency Name" className="bg-secondary border-border" /></div>
+                    <div className="space-y-2"><Label>Email Reply-To</Label><Input value={brandForm.email_reply_to} onChange={e => setBrandForm(f => ({ ...f, email_reply_to: e.target.value }))} placeholder="replies@agency.com" className="bg-secondary border-border" /></div>
+                    <div className="space-y-2"><Label>Custom Domain</Label><Input value={brandForm.custom_domain} onChange={e => setBrandForm(f => ({ ...f, custom_domain: e.target.value }))} placeholder="apply.youragency.com" className="bg-secondary border-border" /></div>
+                  </div>
+                  <div className="flex items-center gap-3 mt-4">
+                    <Switch checked={brandForm.hide_halevai_branding} onCheckedChange={v => setBrandForm(f => ({ ...f, hide_halevai_branding: v }))} />
+                    <div>
+                      <Label className="text-foreground">Hide Halevai Branding</Label>
+                      <p className="text-xs text-muted-foreground">Remove "Built with Halevai.ai" from public landing pages</p>
+                    </div>
+                  </div>
+                </div>
+
                 {!isViewer && (
                   <Button className="bg-primary text-primary-foreground" onClick={saveBranding} disabled={savingBrand}>
                     {savingBrand ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />} Save Branding
