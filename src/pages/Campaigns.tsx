@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ReferenceLine } from "recharts";
 
 // Sequences Tab Component with full step editor
@@ -272,6 +273,7 @@ const CampaignGrid = ({ campaigns, onOptimize }: { campaigns: any[]; onOptimize:
 };
 
 const Campaigns = () => {
+  usePageTitle("Campaigns");
   const { data: campaigns, isLoading } = useCampaigns();
   const { data: sources } = useReferralSources();
   const { data: templates } = useCampaignTemplates();

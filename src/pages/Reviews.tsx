@@ -13,9 +13,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const Reviews = () => {
+  usePageTitle("Reviews");
   const { data: reviews, isLoading, refetch } = useReviews();
   const { data: requests } = useReviewRequests();
   const { data: caregivers } = useCaregivers();

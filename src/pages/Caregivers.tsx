@@ -17,6 +17,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ComposeMessageDialog } from "@/components/ComposeMessageDialog";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { isValidStatusTransition, normalizePhone } from "@/lib/formatters";
 import {
   DndContext,
   DragOverlay,
@@ -117,6 +120,7 @@ function CaregiverCard({ caregiver: c, onClick }: { caregiver: Caregiver; onClic
 }
 
 const Caregivers = () => {
+  usePageTitle("Caregivers");
   const { data: caregivers, isLoading } = useCaregivers();
   const { data: rateIntel } = usePayRateIntel();
   const { agencyId } = useAuth();
@@ -133,9 +137,10 @@ const Caregivers = () => {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
+  const debouncedSearch = useDebouncedValue(searchTerm);
   const filtered = (caregivers || []).filter(c =>
-    c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.county || "").toLowerCase().includes(searchTerm.toLowerCase())
+    c.full_name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    (c.county || "").toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -152,6 +157,12 @@ const Caregivers = () => {
     const newStatus = over.id as LeadStatus;
 
     if (!caregiver || caregiver.status === newStatus) return;
+
+    // Validate status transition
+    if (!isValidStatusTransition(caregiver.status || "new", newStatus)) {
+      toast.error(`Cannot move from "${caregiver.status}" to "${newStatus}". Invalid transition.`);
+      return;
+    }
 
     // Optimistic update
     qc.setQueryData(["caregivers", agencyId], (old: Caregiver[] | undefined) =>

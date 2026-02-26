@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const ENROLLMENT_STAGES = [
   { value: "intake_started", label: "Intake Started", color: "bg-yellow-500/20 text-yellow-400" },
@@ -36,6 +37,7 @@ const dayColor = (days: number) => {
 };
 
 const Enrollment = () => {
+  usePageTitle("Enrollment");
   const { data: caregivers, isLoading, refetch } = useCaregivers();
   const { agencyId } = useAuth();
   const enrolling = (caregivers || []).filter(c =>
