@@ -4,8 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Caregivers from "./pages/Caregivers";
@@ -28,6 +30,10 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const P = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>{children}</ProtectedRoute>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -38,24 +44,25 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/caregivers" element={<Caregivers />} />
-            <Route path="/halevai" element={<HalevaiChat />} />
-            <Route path="/enrollment" element={<Enrollment />} />
-            <Route path="/campaigns" element={<Campaigns />} />
-            <Route path="/campaign-builder" element={<CampaignBuilder />} />
-            <Route path="/competitors" element={<Competitors />} />
-            <Route path="/reviews" element={<Reviews />} />
-            <Route path="/recommendations" element={<Recommendations />} />
-            <Route path="/playbooks" element={<Playbooks />} />
-            <Route path="/briefing" element={<Briefing />} />
-            <Route path="/talent-sourcing" element={<TalentSourcing />} />
-            <Route path="/content" element={<ContentCalendar />} />
-            <Route path="/landing-pages" element={<LandingPages />} />
-            <Route path="/creatives" element={<AdCreatives />} />
-            <Route path="/automations" element={<Automations />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/onboarding" element={<P><Onboarding /></P>} />
+            <Route path="/dashboard" element={<P><Dashboard /></P>} />
+            <Route path="/caregivers" element={<P><Caregivers /></P>} />
+            <Route path="/halevai" element={<P><HalevaiChat /></P>} />
+            <Route path="/enrollment" element={<P><Enrollment /></P>} />
+            <Route path="/campaigns" element={<P><Campaigns /></P>} />
+            <Route path="/campaign-builder" element={<P><CampaignBuilder /></P>} />
+            <Route path="/competitors" element={<P><Competitors /></P>} />
+            <Route path="/reviews" element={<P><Reviews /></P>} />
+            <Route path="/recommendations" element={<P><Recommendations /></P>} />
+            <Route path="/playbooks" element={<P><Playbooks /></P>} />
+            <Route path="/briefing" element={<P><Briefing /></P>} />
+            <Route path="/talent-sourcing" element={<P><TalentSourcing /></P>} />
+            <Route path="/content" element={<P><ContentCalendar /></P>} />
+            <Route path="/landing-pages" element={<P><LandingPages /></P>} />
+            <Route path="/creatives" element={<P><AdCreatives /></P>} />
+            <Route path="/automations" element={<P><Automations /></P>} />
+            <Route path="/settings" element={<P><Settings /></P>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
