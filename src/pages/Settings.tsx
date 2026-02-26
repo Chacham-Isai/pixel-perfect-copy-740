@@ -7,17 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings as SettingsIcon, Building2, Bell, Palette, Loader2, Save, Plus, X } from "lucide-react";
+import { Settings as SettingsIcon, Building2, Bell, Palette, Loader2, Save, Plus, X, Users } from "lucide-react";
 import { useAgency, useBusinessConfig } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import TeamMembers from "@/components/TeamMembers";
 
 const Settings = () => {
   const { data: agency, isLoading, refetch: refetchAgency } = useAgency();
   const { data: config, refetch: refetchConfig } = useBusinessConfig();
-  const { agencyId } = useAuth();
+  const { agencyId, isViewer } = useAuth();
 
   // Agency form
   const [agencyForm, setAgencyForm] = useState({ name: "", phone: "", email: "", website_url: "", office_address: "", states: [] as string[] });
@@ -105,6 +106,7 @@ const Settings = () => {
             <TabsTrigger value="agency"><Building2 className="h-3 w-3 mr-1" />Agency Profile</TabsTrigger>
             <TabsTrigger value="branding"><Palette className="h-3 w-3 mr-1" />Branding</TabsTrigger>
             <TabsTrigger value="notifications"><Bell className="h-3 w-3 mr-1" />Notifications</TabsTrigger>
+            <TabsTrigger value="team"><Users className="h-3 w-3 mr-1" />Team</TabsTrigger>
           </TabsList>
 
           <TabsContent value="agency" className="mt-4 space-y-4">
@@ -135,9 +137,12 @@ const Settings = () => {
                     <Label>Plan</Label>
                     <Badge className="bg-accent/20 text-accent capitalize">{agency?.plan || "starter"}</Badge>
                   </div>
-                  <Button className="bg-primary text-primary-foreground" onClick={saveAgency} disabled={savingAgency}>
-                    {savingAgency ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />} Save Changes
-                  </Button>
+                  {!isViewer && (
+                    <Button className="bg-primary text-primary-foreground" onClick={saveAgency} disabled={savingAgency}>
+                      {savingAgency ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />} Save Changes
+                    </Button>
+                  )}
+
                 </CardContent>
               </Card>
             )}
@@ -184,11 +189,18 @@ const Settings = () => {
                   <div className="space-y-2"><Label>Instagram URL</Label><Input value={brandForm.instagram_url} onChange={e => setBrandForm(f => ({ ...f, instagram_url: e.target.value }))} placeholder="https://instagram.com/..." className="bg-secondary border-border" /></div>
                   <div className="space-y-2"><Label>LinkedIn URL</Label><Input value={brandForm.linkedin_url} onChange={e => setBrandForm(f => ({ ...f, linkedin_url: e.target.value }))} placeholder="https://linkedin.com/..." className="bg-secondary border-border" /></div>
                 </div>
-                <Button className="bg-primary text-primary-foreground" onClick={saveBranding} disabled={savingBrand}>
-                  {savingBrand ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />} Save Branding
-                </Button>
+                {!isViewer && (
+                  <Button className="bg-primary text-primary-foreground" onClick={saveBranding} disabled={savingBrand}>
+                    {savingBrand ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />} Save Branding
+                  </Button>
+                )}
+
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="team" className="mt-4">
+            <TeamMembers />
           </TabsContent>
 
           <TabsContent value="notifications" className="mt-4">
@@ -215,6 +227,10 @@ const Settings = () => {
                 ))}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="team" className="mt-4">
+            <TeamMembers />
           </TabsContent>
         </Tabs>
       </div>
