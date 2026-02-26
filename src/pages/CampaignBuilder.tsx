@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { PenTool, ArrowRight, ArrowLeft, Sparkles, Check, Loader2, ChevronDown, Download, Save } from "lucide-react";
+import { PenTool, ArrowRight, ArrowLeft, Sparkles, Check, Loader2, ChevronDown, Download, Save, CheckCircle2, Circle, Info, Zap } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/hooks/useAgencyData";
@@ -173,14 +174,28 @@ const CampaignBuilder = () => {
         <Card className="bg-card halevai-border">
           <CardContent className="p-6">
             {step === 0 && (
+              <TooltipProvider delayDuration={200}>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h2 className="text-lg font-semibold text-foreground">Select Platforms</h2>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => selectAll("paid")}>Select All Paid</Button>
-                    <Button size="sm" variant="outline" onClick={() => selectAll("free")}>Select All Free</Button>
+                    <Button size="sm" variant="outline" onClick={() => selectAll("paid")} className="gap-1"><Zap className="h-3 w-3" />Select All Paid</Button>
+                    <Button size="sm" variant="outline" onClick={() => selectAll("free")} className="gap-1">Select All Free</Button>
                   </div>
                 </div>
+
+                {/* Sticky selection summary */}
+                {selectedPlatforms.length > 0 && (
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                      <span className="text-sm text-foreground font-medium">{selectedPlatforms.length} platform{selectedPlatforms.length !== 1 ? "s" : ""} selected</span>
+                      <span className="text-xs text-muted-foreground">— {selectedPlatforms.slice(0, 3).join(", ")}{selectedPlatforms.length > 3 ? ` +${selectedPlatforms.length - 3} more` : ""}</span>
+                    </div>
+                    <Button size="sm" variant="ghost" className="text-xs text-destructive hover:text-destructive" onClick={() => setSelectedPlatforms([])}>Clear All</Button>
+                  </div>
+                )}
+
                 <div className="space-y-5">
                   {PLATFORM_CATEGORIES.map(cat => {
                     const catNames = cat.platforms.map(p => p.name);
@@ -192,28 +207,62 @@ const CampaignBuilder = () => {
                             <h3 className="text-sm font-semibold text-foreground">{cat.label}</h3>
                             <p className="text-xs text-muted-foreground max-w-xl">{cat.description}</p>
                           </div>
-                          <Button size="sm" variant="outline" className="text-xs shrink-0" onClick={() => selectCategory(cat.label)}>
-                            {selectedInCat === catNames.length ? "Deselect All" : "Select All"}
+                          <Button size="sm" variant={selectedInCat === catNames.length ? "default" : "outline"} className="text-xs shrink-0 gap-1" onClick={() => selectCategory(cat.label)}>
+                            {selectedInCat === catNames.length ? <><Check className="h-3 w-3" />All Selected</> : <>Select All ({catNames.length})</>}
                           </Button>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                          {cat.platforms.map(p => (
-                            <Card key={p.name} onClick={() => togglePlatform(p.name)} className={`cursor-pointer transition-all p-3 ${selectedPlatforms.includes(p.name) ? "border-primary bg-primary/10" : "bg-secondary/30 halevai-border hover:border-primary/30"}`}>
-                              <div className="text-sm font-medium text-foreground">{p.name}</div>
-                              <div className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{p.tip}</div>
-                              <div className="flex items-center justify-between mt-2">
-                                <span className="text-[10px] text-muted-foreground">{p.estimated}</span>
-                                <span className="text-[10px] text-primary font-data font-bold">{p.cpa}</span>
-                              </div>
-                            </Card>
-                          ))}
+                          {cat.platforms.map(p => {
+                            const isSelected = selectedPlatforms.includes(p.name);
+                            return (
+                              <Tooltip key={p.name}>
+                                <TooltipTrigger asChild>
+                                  <Card
+                                    onClick={() => {
+                                      togglePlatform(p.name);
+                                      if (!isSelected) toast.success(`${p.name} added`, { duration: 1500 });
+                                    }}
+                                    className={`cursor-pointer transition-all duration-200 p-3 relative group ${
+                                      isSelected
+                                        ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-[0_0_12px_-3px_hsl(var(--primary)/0.3)]"
+                                        : "bg-secondary/30 halevai-border hover:border-primary/40 hover:bg-secondary/50"
+                                    }`}
+                                  >
+                                    {/* Selection indicator */}
+                                    <div className={`absolute top-2 right-2 transition-all duration-200 ${isSelected ? "scale-100 opacity-100" : "scale-75 opacity-0 group-hover:scale-100 group-hover:opacity-30"}`}>
+                                      {isSelected ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
+                                    </div>
+                                    <div className="text-sm font-medium text-foreground pr-5">{p.name}</div>
+                                    <div className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{p.tip}</div>
+                                    <div className="flex items-center justify-between mt-2 pt-1 border-t border-border/50">
+                                      <span className="text-[10px] text-muted-foreground">{p.estimated}</span>
+                                      <span className={`text-[10px] font-data font-bold ${p.cpa === "Free" || p.cpa === "$0-5" ? "text-green-400" : "text-primary"}`}>{p.cpa}</span>
+                                    </div>
+                                  </Card>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <p className="text-xs font-medium">{p.name}</p>
+                                  <p className="text-xs text-muted-foreground">{p.tip}</p>
+                                  <p className="text-xs mt-1">Est. reach: <strong>{p.estimated}</strong> · Cost: <strong>{p.cpa}</strong></p>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">{selectedPlatforms.length} platform(s) selected</p>
+
+                {selectedPlatforms.length === 0 && (
+                  <div className="text-center py-4 bg-secondary/20 rounded-lg border border-dashed border-border">
+                    <Info className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                    <p className="text-sm text-muted-foreground">Click on any platform card to select it</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Or use "Select All" buttons above for quick selection</p>
+                  </div>
+                )}
               </div>
+              </TooltipProvider>
             )}
 
             {step === 1 && (
