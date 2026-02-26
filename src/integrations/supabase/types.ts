@@ -192,6 +192,97 @@ export type Database = {
           },
         ]
       }
+      agent_activity_log: {
+        Row: {
+          action: string
+          agency_id: string
+          agent_type: string
+          created_at: string | null
+          details: string | null
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          success: boolean | null
+        }
+        Insert: {
+          action: string
+          agency_id: string
+          agent_type: string
+          created_at?: string | null
+          details?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          success?: boolean | null
+        }
+        Update: {
+          action?: string
+          agency_id?: string
+          agent_type?: string
+          created_at?: string | null
+          details?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_activity_log_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          agency_id: string
+          connected: boolean | null
+          created_at: string | null
+          id: string
+          key_name: string
+          key_value: string
+          last_tested_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          connected?: boolean | null
+          created_at?: string | null
+          id?: string
+          key_name: string
+          key_value: string
+          last_tested_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          connected?: boolean | null
+          created_at?: string | null
+          id?: string
+          key_name?: string
+          key_value?: string
+          last_tested_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_configs: {
         Row: {
           actions_this_week: number | null
@@ -1248,6 +1339,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "locations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_log: {
+        Row: {
+          agency_id: string
+          body: string
+          channel: string
+          created_at: string | null
+          error_message: string | null
+          external_id: string | null
+          id: string
+          related_id: string | null
+          related_type: string | null
+          status: string | null
+          subject: string | null
+          template: string | null
+          to_contact: string
+        }
+        Insert: {
+          agency_id: string
+          body: string
+          channel: string
+          created_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          related_id?: string | null
+          related_type?: string | null
+          status?: string | null
+          subject?: string | null
+          template?: string | null
+          to_contact: string
+        }
+        Update: {
+          agency_id?: string
+          body?: string
+          channel?: string
+          created_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          related_id?: string | null
+          related_type?: string | null
+          status?: string | null
+          subject?: string | null
+          template?: string | null
+          to_contact?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_log_agency_id_fkey"
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"

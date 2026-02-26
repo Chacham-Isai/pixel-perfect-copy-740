@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings as SettingsIcon, Building2, Bell, Palette, Loader2, Save, Plus, X, Users } from "lucide-react";
+import { Settings as SettingsIcon, Building2, Bell, Palette, Loader2, Save, Plus, X, Users, Plug } from "lucide-react";
 import { useAgency, useBusinessConfig } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import TeamMembers from "@/components/TeamMembers";
+import IntegrationsTab from "@/components/IntegrationsTab";
 
 const Settings = () => {
   const { data: agency, isLoading, refetch: refetchAgency } = useAgency();
@@ -107,6 +108,7 @@ const Settings = () => {
             <TabsTrigger value="branding"><Palette className="h-3 w-3 mr-1" />Branding</TabsTrigger>
             <TabsTrigger value="notifications"><Bell className="h-3 w-3 mr-1" />Notifications</TabsTrigger>
             <TabsTrigger value="team"><Users className="h-3 w-3 mr-1" />Team</TabsTrigger>
+            <TabsTrigger value="integrations"><Plug className="h-3 w-3 mr-1" />Integrations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="agency" className="mt-4 space-y-4">
@@ -231,6 +233,10 @@ const Settings = () => {
 
           <TabsContent value="team" className="mt-4">
             <TeamMembers />
+          </TabsContent>
+
+          <TabsContent value="integrations" className="mt-4">
+            <IntegrationsTab />
           </TabsContent>
         </Tabs>
       </div>

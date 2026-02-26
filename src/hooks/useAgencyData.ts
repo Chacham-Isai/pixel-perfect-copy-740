@@ -156,3 +156,79 @@ export const useToggleAutomation = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["automations"] }),
   });
 };
+
+// === Phase 1: Messaging & Integration hooks ===
+
+export const useApiKeys = () => {
+  const { agencyId } = useAuth();
+  return useQuery({
+    queryKey: ["api_keys", agencyId],
+    queryFn: async () => {
+      if (!agencyId) return [];
+      const { data, error } = await supabase
+        .from("api_keys" as any)
+        .select("*")
+        .eq("agency_id", agencyId);
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    enabled: !!agencyId,
+  });
+};
+
+export const useMessageLog = (limit = 50) => {
+  const { agencyId } = useAuth();
+  return useQuery({
+    queryKey: ["message_log", agencyId, limit],
+    queryFn: async () => {
+      if (!agencyId) return [];
+      const { data, error } = await supabase
+        .from("message_log" as any)
+        .select("*")
+        .eq("agency_id", agencyId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    enabled: !!agencyId,
+  });
+};
+
+export const useSaveApiKey = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ agencyId, keyName, keyValue }: { agencyId: string; keyName: string; keyValue: string }) => {
+      const { error } = await supabase
+        .from("api_keys" as any)
+        .upsert(
+          { agency_id: agencyId, key_name: keyName, key_value: keyValue, connected: false, updated_at: new Date().toISOString() },
+          { onConflict: "agency_id,key_name" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["api_keys"] }),
+  });
+};
+
+export const useTestConnection = () => {
+  return useMutation({
+    mutationFn: async ({ agencyId, keyName }: { agencyId: string; keyName: string }) => {
+      // Call edge function to test the connection
+      const { data, error } = await supabase.functions.invoke("send-message", {
+        body: {
+          agency_id: agencyId,
+          channel: keyName.startsWith("twilio") ? "sms" : "email",
+          to: "test",
+          body: "Connection test",
+          template: "__test__",
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+};
+
+export const useAgentActivityLog = () => useAgencyQuery<any>("agent_activity_log", "agent_activity_log", { orderBy: "created_at", limit: 50 });
+export const usePhoneScreens = () => useAgencyQuery<any>("phone_screens", "phone_screens", { orderBy: "created_at" });
