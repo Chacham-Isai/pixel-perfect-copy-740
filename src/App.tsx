@@ -3,44 +3,64 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import PlaceholderPage from "./pages/PlaceholderPage";
+import Onboarding from "./pages/Onboarding";
+import Dashboard from "./pages/Dashboard";
+import Caregivers from "./pages/Caregivers";
+import HalevaiChat from "./pages/HalevaiChat";
+import Enrollment from "./pages/Enrollment";
+import Campaigns from "./pages/Campaigns";
+import CampaignBuilder from "./pages/CampaignBuilder";
+import Competitors from "./pages/Competitors";
+import Reviews from "./pages/Reviews";
+import Recommendations from "./pages/Recommendations";
+import Playbooks from "./pages/Playbooks";
+import Briefing from "./pages/Briefing";
+import TalentSourcing from "./pages/TalentSourcing";
+import ContentCalendar from "./pages/ContentCalendar";
+import LandingPages from "./pages/LandingPages";
+import AdCreatives from "./pages/AdCreatives";
+import Automations from "./pages/Automations";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<PlaceholderPage title="Dashboard" description="Your agency's command center with AI-powered insights." />} />
-          <Route path="/halevai" element={<PlaceholderPage title="Halevai AI" description="Your AI copilot for home care growth strategy." />} />
-          <Route path="/recommendations" element={<PlaceholderPage title="Recommendations" description="AI-generated growth recommendations tailored to your agency." />} />
-          <Route path="/playbooks" element={<PlaceholderPage title="Playbooks" description="Step-by-step growth playbooks powered by industry best practices." />} />
-          <Route path="/briefing" element={<PlaceholderPage title="Daily Briefing" description="Your morning intelligence report on agency performance." />} />
-          <Route path="/caregivers" element={<PlaceholderPage title="Caregivers" description="Full pipeline view of your caregiver recruitment funnel." />} />
-          <Route path="/enrollment" element={<PlaceholderPage title="Enrollment Tracker" description="Track patient enrollment from referral to active." />} />
-          <Route path="/campaigns" element={<PlaceholderPage title="Campaigns" description="Manage and monitor your recruitment marketing campaigns." />} />
-          <Route path="/campaign-builder" element={<PlaceholderPage title="Campaign Builder" description="Build multi-channel recruitment campaigns with AI assistance." />} />
-          <Route path="/landing-pages" element={<PlaceholderPage title="Landing Pages" description="Create high-converting recruitment landing pages." />} />
-          <Route path="/content" element={<PlaceholderPage title="Content Calendar" description="Plan and schedule your content marketing strategy." />} />
-          <Route path="/creatives" element={<PlaceholderPage title="Ad Creatives" description="AI-generated ad creatives for your campaigns." />} />
-          <Route path="/talent-sourcing" element={<PlaceholderPage title="Talent Sourcing" description="Autonomous AI agents finding qualified caregivers 24/7." />} />
-          <Route path="/competitors" element={<PlaceholderPage title="Competitors" description="Real-time competitive intelligence and market monitoring." />} />
-          <Route path="/reviews" element={<PlaceholderPage title="Reviews" description="Monitor and manage your agency's online reputation." />} />
-          <Route path="/automations" element={<PlaceholderPage title="Automations" description="Configure workflows and automation rules." />} />
-          <Route path="/settings" element={<PlaceholderPage title="Settings" description="Manage your agency profile and preferences." />} />
-          <Route path="/onboarding" element={<PlaceholderPage title="Onboarding" description="Set up your agency profile to get started." />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/caregivers" element={<Caregivers />} />
+            <Route path="/halevai" element={<HalevaiChat />} />
+            <Route path="/enrollment" element={<Enrollment />} />
+            <Route path="/campaigns" element={<Campaigns />} />
+            <Route path="/campaign-builder" element={<CampaignBuilder />} />
+            <Route path="/competitors" element={<Competitors />} />
+            <Route path="/reviews" element={<Reviews />} />
+            <Route path="/recommendations" element={<Recommendations />} />
+            <Route path="/playbooks" element={<Playbooks />} />
+            <Route path="/briefing" element={<Briefing />} />
+            <Route path="/talent-sourcing" element={<TalentSourcing />} />
+            <Route path="/content" element={<ContentCalendar />} />
+            <Route path="/landing-pages" element={<LandingPages />} />
+            <Route path="/creatives" element={<AdCreatives />} />
+            <Route path="/automations" element={<Automations />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
