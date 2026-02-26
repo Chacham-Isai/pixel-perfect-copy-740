@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +50,7 @@ const SequencesTab = ({ sequences, agencyId }: { sequences: any[]; agencyId: str
       agency_id: agencyId, name: newName, trigger_type: newTrigger,
     });
     if (error) toast.error("Failed to create");
-    else { toast.success("Sequence created!"); setNewName(""); window.location.reload(); }
+    else { toast.success("Sequence created!"); setNewName(""); }
     setCreating(false);
   };
 
@@ -103,7 +104,7 @@ const SequencesTab = ({ sequences, agencyId }: { sequences: any[]; agencyId: str
 
   const toggleActive = async (seqId: string, active: boolean) => {
     await supabase.from("campaign_sequences" as any).update({ active: !active }).eq("id", seqId);
-    window.location.reload();
+    toast.success(active ? "Sequence paused" : "Sequence activated");
   };
 
   return (
@@ -277,6 +278,7 @@ const Campaigns = () => {
   const { data: sequences } = useCampaignSequences();
   const { agencyId } = useAuth();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [optimizing, setOptimizing] = useState<string | null>(null);
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [discoverLoading, setDiscoverLoading] = useState(false);
@@ -382,7 +384,7 @@ const Campaigns = () => {
                       });
                       if (error) throw error;
                       toast.success(`Discovered ${data?.total_saved || 0} new sources!`);
-                      window.location.reload();
+                      qc.invalidateQueries({ queryKey: ["referral_sources"] });
                     } catch (e: any) {
                       toast.error(e.message || "Discovery failed");
                     }
