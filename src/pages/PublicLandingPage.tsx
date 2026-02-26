@@ -138,12 +138,12 @@ const PublicLandingPage = () => {
         state: page.state,
         county: page.county,
         language_primary: page.language || "english",
-        source: "landing_page" as any,
+        source: "landing_page",
         landing_page_id: page.id,
         utm_source: utm.source,
         utm_medium: utm.medium,
         utm_campaign: utm.campaign,
-        status: "new" as any,
+        status: "new",
       });
 
       // Update form submissions count

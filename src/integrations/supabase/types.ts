@@ -2425,6 +2425,7 @@ export type Database = {
         | "direct"
         | "poaching"
         | "other"
+        | "landing_page"
       lead_status:
         | "new"
         | "contacted"
@@ -2580,6 +2581,7 @@ export const Constants = {
         "direct",
         "poaching",
         "other",
+        "landing_page",
       ],
       lead_status: [
         "new",
