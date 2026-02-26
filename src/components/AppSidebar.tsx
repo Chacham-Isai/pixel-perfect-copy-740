@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/lib/permissions";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
-import logo from "@/assets/logo-transparent.png";
+import logo from "@/assets/care-at-home-logo.png";
 
 import {
   Sidebar,
