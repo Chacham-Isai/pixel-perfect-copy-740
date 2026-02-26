@@ -4,13 +4,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Zap, Play, Loader2, MessageSquare, Search, ClipboardList, Star, Brain } from "lucide-react";
+import { Zap, Play, Loader2, MessageSquare, Search, ClipboardList, Star, Brain, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAutomations, useToggleAutomation } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 const categoryConfig: Record<string, { label: string; icon: typeof Zap }> = {
   messaging: { label: "Messaging", icon: MessageSquare },
@@ -43,8 +45,11 @@ const Automations = () => {
   const { data: automations, isLoading } = useAutomations();
   const toggleMutation = useToggleAutomation();
   const { agencyId, isViewer } = useAuth();
+  const qc = useQueryClient();
   const all = automations || [];
   const [running, setRunning] = useState(false);
+  const [runResults, setRunResults] = useState<{ key: string; actions: number }[] | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   const handleRunNow = async () => {
     if (!agencyId) return;
@@ -54,8 +59,18 @@ const Automations = () => {
         body: { agencyId },
       });
       if (error) throw error;
-      const totalActions = (data?.results || []).reduce((s: number, r: any) => s + r.actions, 0);
-      toast.success(`Automations complete: ${totalActions} actions taken`);
+      // Response is { results: [{ agency, results: [{key, actions}] }] }
+      const agencyResults = (data?.results || []).flatMap((r: any) => r.results || []);
+      const totalActions = agencyResults.reduce((s: number, r: any) => s + (r.actions || 0), 0);
+      setRunResults(agencyResults);
+      setShowResults(true);
+      // Refresh automations data to show updated last_run_at and actions_this_week
+      qc.invalidateQueries({ queryKey: ["automations"] });
+      if (totalActions > 0) {
+        toast.success(`Automations complete: ${totalActions} actions taken`);
+      } else {
+        toast.info("Automations ran — no new actions needed right now");
+      }
     } catch (e: any) {
       toast.error(e.message || "Failed to run automations");
     }
@@ -140,6 +155,41 @@ const Automations = () => {
             {all.length === 0 && <p className="text-center text-muted-foreground py-8">No automations configured</p>}
           </div>
         )}
+
+
+        <Dialog open={showResults} onOpenChange={setShowResults}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                Automation Run Results
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {runResults?.length === 0 && (
+                <p className="text-sm text-muted-foreground py-4 text-center">No active automations to run.</p>
+              )}
+              {runResults?.map((r, i) => {
+                const matchedAuto = all.find(a => a.automation_key === r.key);
+                return (
+                  <div key={i} className="flex items-center justify-between p-2 rounded bg-secondary/30">
+                    <span className="text-sm text-foreground">{matchedAuto?.label || r.key}</span>
+                    <div className="flex items-center gap-1.5">
+                      {r.actions > 0 ? (
+                        <Badge className="bg-primary/20 text-primary text-xs">{r.actions} action{r.actions !== 1 ? "s" : ""}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No action needed</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Total: {runResults?.reduce((s, r) => s + r.actions, 0) || 0} actions across {runResults?.length || 0} automations
+            </p>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
