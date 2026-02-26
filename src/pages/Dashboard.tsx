@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Users, UserPlus, Megaphone, Bot, Search, Newspaper, Eye, Calendar,
-  ArrowRight, TrendingUp, AlertTriangle, CheckCircle, Clock
+  ArrowRight, TrendingUp, AlertTriangle, CheckCircle, Clock, DollarSign
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCaregivers, useCampaigns, useReviews, useActivityLog, useSourcedCandidates } from "@/hooks/useAgencyData";
+import { useCaregivers, useCampaigns, useReviews, useActivityLog, useSourcedCandidates, usePayRateIntel } from "@/hooks/useAgencyData";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const quickActions = [
@@ -33,6 +33,7 @@ const Dashboard = () => {
   const { data: reviews } = useReviews();
   const { data: activity } = useActivityLog();
   const { data: sourced } = useSourcedCandidates();
+  const { data: rateIntel } = usePayRateIntel();
 
   const activeCampaigns = campaigns?.filter(c => c.status === "active") || [];
   const totalSpend = activeCampaigns.reduce((s, c) => s + (c.spend || 0), 0);
@@ -115,7 +116,7 @@ const Dashboard = () => {
           {[
             { label: "Total Spend", value: `$${totalSpend.toLocaleString()}`, sub: "Active campaigns", icon: TrendingUp },
             { label: "New This Week", value: String(newThisWeek), sub: "Caregivers", icon: UserPlus },
-            { label: "Reviews Pending", value: String(unrespondedReviews), sub: "Unresponded", icon: AlertTriangle },
+            { label: "Recommended Rate", value: rateIntel ? `$${Number(rateIntel.recommended_rate).toFixed(0)}/hr` : "—", sub: rateIntel ? `Medicaid: $${Number(rateIntel.medicaid_reimbursement_rate).toFixed(0)}/hr` : "Run analysis", icon: DollarSign, href: "/competitors" },
             { label: "Enrollment Rate", value: `${enrollmentRate}%`, sub: "→ Active", icon: CheckCircle },
           ].map((kpi) => (
             <Card key={kpi.label} className="bg-card halevai-border">

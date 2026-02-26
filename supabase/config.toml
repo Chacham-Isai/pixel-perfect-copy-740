@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.score-leads]
 verify_jwt = false
+
+[functions.analyze-pay-rates]
+verify_jwt = false

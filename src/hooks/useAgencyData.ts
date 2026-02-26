@@ -109,6 +109,26 @@ export const useCampaignPackages = () => useAgencyQuery<any>("campaign_packages"
 export const useLandingPageEvents = () => useAgencyQuery<any>("landing_page_events", "landing_page_events", { orderBy: "created_at" });
 export const useReviewRequests = () => useAgencyQuery<any>("review_requests", "review_requests", { orderBy: "sent_at" });
 
+export const usePayRateIntel = () => {
+  const { agencyId } = useAuth();
+  return useQuery({
+    queryKey: ["pay_rate_intel", agencyId],
+    queryFn: async () => {
+      if (!agencyId) return null;
+      const { data, error } = await supabase
+        .from("pay_rate_intel" as any)
+        .select("*")
+        .eq("agency_id", agencyId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!agencyId,
+  });
+};
+
 export const useToggleAutomation = () => {
   const qc = useQueryClient();
   return useMutation({
