@@ -263,7 +263,14 @@ const LandingPages = () => {
                 </CardContent>
               </Card>
             ))}
-            {all.length === 0 && <p className="text-center text-muted-foreground py-8 col-span-3">No landing pages yet. Click "Create Page" to get started.</p>}
+            {all.length === 0 && (
+              <div className="col-span-3 flex flex-col items-center justify-center py-12 text-center">
+                <Globe className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-1">No landing pages yet</h3>
+                <p className="text-sm text-muted-foreground max-w-md mb-4">Create AI-generated landing pages to convert ad clicks into caregiver applications.</p>
+                <Button onClick={() => setCreateOpen(true)} className="bg-primary text-primary-foreground"><Plus className="h-4 w-4 mr-1" /> Create Page</Button>
+              </div>
+            )}
           </div>
         )}
 

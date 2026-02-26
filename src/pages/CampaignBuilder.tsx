@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PenTool, ArrowRight, ArrowLeft, Sparkles, Check, Loader2, ChevronDown, Download, Save } from "lucide-react";
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/hooks/useAgencyData";
 import { supabase } from "@/integrations/supabase/client";
@@ -147,6 +148,13 @@ const CampaignBuilder = () => {
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto space-y-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem><BreadcrumbLink href="/campaigns">Campaigns</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem><BreadcrumbPage>Campaign Builder</BreadcrumbPage></BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <div className="flex items-center gap-3">
           <PenTool className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold text-foreground">Campaign Builder</h1>

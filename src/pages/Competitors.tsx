@@ -175,7 +175,18 @@ const Competitors = () => {
                       </TableRow>
                     );
                   })}
-                  {all.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No competitors tracked yet</TableCell></TableRow>}
+                  {all.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7}>
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <Shield className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                          <h3 className="text-lg font-semibold text-foreground mb-1">No competitors tracked</h3>
+                          <p className="text-sm text-muted-foreground max-w-md mb-4">Run pay rate analysis to auto-discover competitors in your market.</p>
+                          {!isViewer && <Button onClick={handleAnalyze} disabled={analyzing} className="bg-primary text-primary-foreground"><Brain className="h-4 w-4 mr-1" /> Analyze Market</Button>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

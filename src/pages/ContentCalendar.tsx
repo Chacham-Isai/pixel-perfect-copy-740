@@ -248,7 +248,18 @@ const ContentCalendar = () => {
                       <TableCell><Badge variant="outline" className="text-[10px]">{(p.language || "en").toUpperCase().slice(0, 2)}</Badge></TableCell>
                     </TableRow>
                   ))}
-                  {all.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No content yet. Generate posts to get started!</TableCell></TableRow>}
+                  {all.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7}>
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <CalendarDays className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                          <h3 className="text-lg font-semibold text-foreground mb-1">No content yet</h3>
+                          <p className="text-sm text-muted-foreground max-w-md mb-4">Generate AI-powered social media posts for your caregiver recruitment campaigns.</p>
+                          <Button onClick={() => setGenOpen(true)} className="bg-primary text-primary-foreground"><Sparkles className="h-4 w-4 mr-1" /> Generate Posts</Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
