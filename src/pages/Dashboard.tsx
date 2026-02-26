@@ -6,15 +6,8 @@ import {
   ArrowRight, TrendingUp, AlertTriangle, CheckCircle, Clock
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const funnelStages = [
-  { label: "New", count: 47, color: "bg-blue-500", status: "new" },
-  { label: "Contacted", count: 32, color: "bg-cyan-500", status: "contacted" },
-  { label: "Intake", count: 18, color: "bg-yellow-500", status: "intake_started" },
-  { label: "Enrollment", count: 12, color: "bg-orange-500", status: "enrollment_pending" },
-  { label: "Authorized", count: 8, color: "bg-purple-500", status: "authorized" },
-  { label: "Active", count: 24, color: "bg-green-500", status: "active" },
-];
+import { useCaregivers, useCampaigns, useReviews, useActivityLog, useSourcedCandidates } from "@/hooks/useAgencyData";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const quickActions = [
   { label: "Add Caregiver", icon: UserPlus, href: "/caregivers" },
@@ -25,15 +18,44 @@ const quickActions = [
   { label: "Daily Briefing", icon: Newspaper, href: "/briefing" },
 ];
 
-const recentActivity = [
-  { action: "New caregiver Maria Gonzales added via Indeed", time: "12 min ago", type: "new" },
-  { action: "Jose Rivera scored HOT (87/100) — auto SMS sent", time: "34 min ago", type: "hot" },
-  { action: "Enrollment approved for Patricia Chen (Multnomah)", time: "1h ago", type: "success" },
-  { action: "Stuck alert: David Kim in Intake for 9 days", time: "2h ago", type: "warning" },
-  { action: "Campaign 'OR Recruitment Q1' hit $2.50 CPA target", time: "3h ago", type: "success" },
+const funnelConfig = [
+  { label: "New", status: "new", color: "bg-blue-500" },
+  { label: "Contacted", status: "contacted", color: "bg-cyan-500" },
+  { label: "Intake", status: "intake_started", color: "bg-yellow-500" },
+  { label: "Enrollment", status: "enrollment_pending", color: "bg-orange-500" },
+  { label: "Authorized", status: "authorized", color: "bg-purple-500" },
+  { label: "Active", status: "active", color: "bg-green-500" },
 ];
 
 const Dashboard = () => {
+  const { data: caregivers, isLoading: loadingCaregivers } = useCaregivers();
+  const { data: campaigns } = useCampaigns();
+  const { data: reviews } = useReviews();
+  const { data: activity } = useActivityLog();
+  const { data: sourced } = useSourcedCandidates();
+
+  const activeCampaigns = campaigns?.filter(c => c.status === "active") || [];
+  const totalSpend = activeCampaigns.reduce((s, c) => s + (c.spend || 0), 0);
+  const newThisWeek = caregivers?.filter(c => {
+    const d = new Date(c.created_at || "");
+    return Date.now() - d.getTime() < 7 * 86400000;
+  }).length || 0;
+  const unrespondedReviews = reviews?.filter(r => !r.responded).length || 0;
+  const activeCount = caregivers?.filter(c => c.status === "active").length || 0;
+  const totalCount = caregivers?.length || 1;
+  const enrollmentRate = totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0;
+
+  const funnelStages = funnelConfig.map(f => ({
+    ...f,
+    count: caregivers?.filter(c => c.status === f.status).length || 0,
+  }));
+  const maxFunnel = Math.max(...funnelStages.map(s => s.count), 1);
+
+  const activityTypeMap: Record<string, string> = {
+    caregiver_added: "new", lead_scored: "hot", enrollment_approved: "success",
+    stuck_alert: "warning", campaign_milestone: "success",
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -47,11 +69,10 @@ const Dashboard = () => {
               <div>
                 <h2 className="font-semibold text-foreground mb-1">Good morning! Here's your daily snapshot:</h2>
                 <p className="text-muted-foreground text-sm leading-relaxed">
-                  You have <Link to="/caregivers?status=new" className="text-primary hover:underline">47 new caregivers</Link> in your pipeline, 
-                  with <span className="text-primary">5 scored HOT</span> in the last 24 hours. 
-                  <Link to="/enrollment" className="text-primary hover:underline"> 3 enrollments</Link> are stale (&gt;14 days). 
-                  Your Oregon campaigns are converting at <span className="font-data text-primary">$18.50 CPA</span> — below your $25 target. 
-                  <Link to="/competitors" className="text-primary hover:underline">FreedomCare raised pay rates</Link> in Washington County.
+                  You have <Link to="/caregivers" className="text-primary hover:underline">{caregivers?.filter(c => c.status === "new").length || 0} new caregivers</Link> in your pipeline
+                  {newThisWeek > 0 && <>, with <span className="text-primary">{newThisWeek} added this week</span></>}. 
+                  Your campaigns are spending <span className="font-data text-primary">${totalSpend.toLocaleString()}</span> total. 
+                  {unrespondedReviews > 0 && <><Link to="/reviews" className="text-primary hover:underline"> {unrespondedReviews} reviews</Link> need responses. </>}
                 </p>
               </div>
             </div>
@@ -67,32 +88,32 @@ const Dashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-end gap-2 h-40">
-              {funnelStages.map((stage, i) => (
-                <Link
-                  key={stage.label}
-                  to={`/caregivers?status=${stage.status}`}
-                  className="flex-1 flex flex-col items-center gap-2 group"
-                >
-                  <span className="font-data text-lg font-bold text-foreground">{stage.count}</span>
-                  <div
-                    className={`w-full ${stage.color} rounded-t-md transition-all group-hover:opacity-80`}
-                    style={{ height: `${(stage.count / 50) * 100}%`, minHeight: "16px" }}
-                  />
-                  <span className="text-xs text-muted-foreground text-center">{stage.label}</span>
-                </Link>
-              ))}
-            </div>
+            {loadingCaregivers ? (
+              <div className="flex gap-2 h-40">{Array(6).fill(0).map((_, i) => <Skeleton key={i} className="flex-1 h-full" />)}</div>
+            ) : (
+              <div className="flex items-end gap-2 h-40">
+                {funnelStages.map((stage) => (
+                  <Link key={stage.label} to={`/caregivers`} className="flex-1 flex flex-col items-center gap-2 group">
+                    <span className="font-data text-lg font-bold text-foreground">{stage.count}</span>
+                    <div
+                      className={`w-full ${stage.color} rounded-t-md transition-all group-hover:opacity-80`}
+                      style={{ height: `${(stage.count / maxFunnel) * 100}%`, minHeight: "16px" }}
+                    />
+                    <span className="text-xs text-muted-foreground text-center">{stage.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* KPI Cards + Quick Launch */}
+        {/* KPI Cards */}
         <div className="grid md:grid-cols-4 gap-4">
           {[
-            { label: "Total Spend", value: "$4,280", sub: "This month", icon: TrendingUp },
-            { label: "New This Week", value: "23", sub: "Caregivers", icon: UserPlus },
-            { label: "Reviews Pending", value: "4", sub: "Unresponded", icon: AlertTriangle },
-            { label: "Enrollment Rate", value: "34%", sub: "→ Active", icon: CheckCircle },
+            { label: "Total Spend", value: `$${totalSpend.toLocaleString()}`, sub: "Active campaigns", icon: TrendingUp },
+            { label: "New This Week", value: String(newThisWeek), sub: "Caregivers", icon: UserPlus },
+            { label: "Reviews Pending", value: String(unrespondedReviews), sub: "Unresponded", icon: AlertTriangle },
+            { label: "Enrollment Rate", value: `${enrollmentRate}%`, sub: "→ Active", icon: CheckCircle },
           ].map((kpi) => (
             <Card key={kpi.label} className="bg-card halevai-border">
               <CardContent className="p-4">
@@ -109,9 +130,7 @@ const Dashboard = () => {
 
         {/* Quick Launch */}
         <Card className="bg-card halevai-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Quick Launch</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="text-lg">Quick Launch</CardTitle></CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
               {quickActions.map((a) => (
@@ -126,9 +145,8 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Recruitment Agent Stats + Activity */}
+        {/* Agent Stats + Activity */}
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Agent Stats */}
           <Card className="bg-card halevai-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -139,10 +157,10 @@ const Dashboard = () => {
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Sourced", value: "142" },
-                  { label: "Outreach Sent", value: "89" },
-                  { label: "Screens Done", value: "34" },
-                  { label: "Auto-Promoted", value: "12" },
+                  { label: "Sourced", value: String(sourced?.length || 0) },
+                  { label: "Outreach Sent", value: String(sourced?.filter(s => s.outreach_status === "sent" || s.outreach_status === "responded").length || 0) },
+                  { label: "Responded", value: String(sourced?.filter(s => s.outreach_status === "responded").length || 0) },
+                  { label: "Promoted", value: String(sourced?.filter(s => s.promoted_to_caregiver_id).length || 0) },
                 ].map((s) => (
                   <div key={s.label} className="bg-secondary/50 rounded-lg p-3 text-center">
                     <div className="font-data text-xl font-bold text-foreground">{s.value}</div>
@@ -153,7 +171,6 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Recent Activity */}
           <Card className="bg-card halevai-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -163,19 +180,24 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {recentActivity.map((a, i) => (
-                  <div key={i} className="flex items-start gap-3 text-sm">
-                    <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${
-                      a.type === "hot" ? "bg-red-500" :
-                      a.type === "success" ? "bg-green-500" :
-                      a.type === "warning" ? "bg-yellow-500" : "bg-primary"
-                    }`} />
-                    <div className="flex-1">
-                      <p className="text-foreground">{a.action}</p>
-                      <p className="text-xs text-muted-foreground">{a.time}</p>
+                {(activity || []).slice(0, 5).map((a) => {
+                  const type = activityTypeMap[a.action] || "new";
+                  const time = a.created_at ? new Date(a.created_at) : new Date();
+                  const mins = Math.floor((Date.now() - time.getTime()) / 60000);
+                  const timeStr = mins < 60 ? `${mins} min ago` : mins < 1440 ? `${Math.floor(mins / 60)}h ago` : `${Math.floor(mins / 1440)}d ago`;
+                  return (
+                    <div key={a.id} className="flex items-start gap-3 text-sm">
+                      <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${
+                        type === "hot" ? "bg-red-500" : type === "success" ? "bg-green-500" : type === "warning" ? "bg-yellow-500" : "bg-primary"
+                      }`} />
+                      <div className="flex-1">
+                        <p className="text-foreground">{a.details || a.action}</p>
+                        <p className="text-xs text-muted-foreground">{timeStr}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+                {(!activity || activity.length === 0) && <p className="text-sm text-muted-foreground">No recent activity</p>}
               </div>
             </CardContent>
           </Card>
