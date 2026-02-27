@@ -32,9 +32,12 @@ import PublicLandingPage from "./pages/PublicLandingPage";
 
 const queryClient = new QueryClient();
 
-const P = ({ children }: { children: React.ReactNode }) => (
-  <ProtectedRoute>{children}</ProtectedRoute>
+import React from "react";
+
+const P = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
+  ({ children }, _ref) => <ProtectedRoute>{children}</ProtectedRoute>
 );
+P.displayName = "P";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
