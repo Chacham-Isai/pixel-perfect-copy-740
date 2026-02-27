@@ -102,7 +102,13 @@ const Playbooks = () => {
                 </Card>
               );
             })}
-            {filtered.length === 0 && <p className="text-center text-muted-foreground py-8 col-span-3">No playbooks found</p>}
+            {filtered.length === 0 && (
+              <div className="col-span-3 flex flex-col items-center justify-center py-12 text-center">
+                <BookOpen className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-1">No playbooks yet</h3>
+                <p className="text-sm text-muted-foreground max-w-md">Growth playbooks with step-by-step strategies will appear here. They provide one-click execution of campaigns, landing pages, and messaging sequences.</p>
+              </div>
+            )}
           </div>
         )}
 

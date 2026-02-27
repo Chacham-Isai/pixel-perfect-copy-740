@@ -387,10 +387,17 @@ const CampaignBuilder = () => {
             <div className="flex justify-between mt-6">
               {step > 0 ? <Button variant="outline" onClick={() => setStep(s => s - 1)}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button> : <div />}
               {step < 3 && (
-                <Button className="bg-primary text-primary-foreground" disabled={step === 0 && selectedPlatforms.length === 0} onClick={async () => {
+                <Button className="bg-primary text-primary-foreground" onClick={async () => {
+                  if (step === 0 && selectedPlatforms.length === 0) {
+                    toast.error("Please select at least one platform before continuing.");
+                    return;
+                  }
+                  if (step === 1 && !details.name.trim()) {
+                    toast.error("Campaign name is required.");
+                    return;
+                  }
                   if (step === 2 && !generatedPackage) {
                     await handleGenerate();
-                    // Check platform credentials when moving to review
                     try {
                       const { data } = await supabase.functions.invoke("post-to-ads", { body: { action: "check_credentials", agencyId } });
                       if (data?.platforms) setPlatformStatus(data.platforms);

@@ -133,6 +133,13 @@ const Recommendations = () => {
                   </CardContent>
                 </Card>
               ))}
+              {all.filter(r => r.status === "approved").length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <CheckCircle className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-1">No approved recommendations yet</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">Approved recommendations will appear here after you review them from the Pending tab.</p>
+                </div>
+              )}
             </div>
           </TabsContent>
 

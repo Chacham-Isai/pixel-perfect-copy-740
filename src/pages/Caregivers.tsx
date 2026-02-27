@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Search, Filter, Download, Plus, Phone, Mail, MapPin, Clock, Loader2, DollarSign, Shield, Users } from "lucide-react";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/states";
 import { usePermission } from "@/components/PermissionGate";
 import { useCaregivers, usePayRateIntel, type Caregiver } from "@/hooks/useAgencyData";
@@ -279,21 +280,19 @@ const Caregivers = () => {
                         <Input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="maria@email.com" className="bg-secondary border-border" />
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label>State</Label>
                         <Select value={form.state} onValueChange={v => setForm(f => ({ ...f, state: v }))}>
                           <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                          <SelectContent>{US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                          <SelectContent>
+                            {["OR", "MI", "WA", "CA", "NY", "TX", "FL"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
                         <Label>County</Label>
-                        <Input value={form.county} onChange={e => setForm(f => ({ ...f, county: e.target.value }))} className="bg-secondary border-border" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>City</Label>
-                        <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="bg-secondary border-border" />
+                        <Input value={form.county} onChange={e => setForm(f => ({ ...f, county: e.target.value }))} placeholder="County" className="bg-secondary border-border" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -304,19 +303,22 @@ const Caregivers = () => {
                           <SelectContent>
                             <SelectItem value="english">English</SelectItem>
                             <SelectItem value="spanish">Spanish</SelectItem>
-                            <SelectItem value="creole">Creole</SelectItem>
-                            <SelectItem value="mandarin">Mandarin</SelectItem>
                             <SelectItem value="russian">Russian</SelectItem>
+                            <SelectItem value="vietnamese">Vietnamese</SelectItem>
+                            <SelectItem value="chinese">Chinese</SelectItem>
+                            <SelectItem value="somali">Somali</SelectItem>
+                            <SelectItem value="arabic">Arabic</SelectItem>
                             <SelectItem value="other">Other</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Lead Source</Label>
+                        <Label>Source</Label>
                         <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
                           <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="direct">Direct</SelectItem>
+                            <SelectItem value="website">Website</SelectItem>
+                            <SelectItem value="landing_page">Landing Page</SelectItem>
                             <SelectItem value="referral">Referral</SelectItem>
                             <SelectItem value="indeed">Indeed</SelectItem>
                             <SelectItem value="facebook">Facebook</SelectItem>
@@ -337,7 +339,16 @@ const Caregivers = () => {
               </DialogContent>
               </Dialog>
               ) : (
-                <Badge variant="secondary" className="text-xs gap-1"><Shield className="h-3 w-3" /> View Only</Badge>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={0}>
+                        <Button size="sm" className="bg-primary text-primary-foreground opacity-50" disabled><Plus className="h-4 w-4 mr-1" /> Add Caregiver</Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent><p>You don't have permission to add caregivers</p></TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </div>
