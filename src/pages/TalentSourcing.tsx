@@ -93,7 +93,14 @@ const TalentSourcing = () => {
     return () => { supabase.removeChannel(channel); };
   }, [agencyId, refetchActivity]);
 
+  const [nameError, setNameError] = useState("");
+
   const handleCreate = async () => {
+    if (!form.name.trim()) {
+      setNameError("Campaign name is required");
+      return;
+    }
+    setNameError("");
     const validation = sourcingCampaignSchema.safeParse(form);
     const errors = formatZodErrors(validation);
     if (errors) { toast.error(errors); return; }
@@ -269,7 +276,7 @@ const TalentSourcing = () => {
             <DialogContent className="bg-card border-border">
               <DialogHeader><DialogTitle className="text-foreground">Create Sourcing Campaign</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <div className="space-y-2"><Label>Campaign Name</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Oregon Q1 Sourcing" className="bg-secondary border-border" /></div>
+                <div className="space-y-2"><Label>Campaign Name <span className="text-destructive">*</span></Label><Input value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); if (e.target.value.trim()) setNameError(""); }} onBlur={() => { if (!form.name.trim()) setNameError("Campaign name is required"); }} placeholder="e.g. Oregon Q1 Sourcing" className={`bg-secondary border-border ${nameError ? "border-destructive" : ""}`} />{nameError && <p className="text-sm text-destructive">{nameError}</p>}</div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>State</Label><Input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} placeholder="Oregon" className="bg-secondary border-border" /></div>
                   <div className="space-y-2"><Label>County</Label><Input value={form.county} onChange={e => setForm(f => ({ ...f, county: e.target.value }))} placeholder="Washington" className="bg-secondary border-border" /></div>
@@ -283,7 +290,7 @@ const TalentSourcing = () => {
                   </div>
                   <div className="space-y-2"><Label>Max Candidates</Label><Input type="number" value={form.max} onChange={e => setForm(f => ({ ...f, max: e.target.value }))} className="bg-secondary border-border" /></div>
                 </div>
-                <Button onClick={handleCreate} disabled={creating || !form.name.trim()} className="w-full bg-primary text-primary-foreground">
+                <Button onClick={handleCreate} disabled={creating} className="w-full bg-primary text-primary-foreground">
                   {creating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />} Create Campaign
                 </Button>
               </div>
