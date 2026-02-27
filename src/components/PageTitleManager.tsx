@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -18,19 +18,21 @@ const PAGE_TITLES: Record<string, string> = {
   "/automations": "Automations",
   "/playbooks": "Playbooks",
   "/recommendations": "Recommendations",
-  "/briefing": "Briefing",
+  "/briefing": "Daily Briefing",
   "/settings": "Settings",
   "/onboarding": "Onboarding",
 };
 
 export function PageTitleManager() {
   const location = useLocation();
+  const lastPath = useRef("");
 
-  useEffect(() => {
-    const path = location.pathname.replace(/\/+$/, "") || "/";
-    const title = PAGE_TITLES[path];
+  const currentPath = location.pathname.replace(/\/+$/, "") || "/";
+  if (currentPath !== lastPath.current) {
+    lastPath.current = currentPath;
+    const title = PAGE_TITLES[currentPath];
     document.title = title ? `${title} | Halevai.ai` : "Halevai.ai";
-  }, [location.pathname]);
+  }
 
   return null;
 }
