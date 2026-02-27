@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -49,7 +49,7 @@ const scheduledJobs = [
 ];
 
 const Automations = () => {
-  usePageTitle("Automations");
+  
   const { data: automations, isLoading } = useAutomations();
   const toggleMutation = useToggleAutomation();
   const { agencyId, isViewer } = useAuth();

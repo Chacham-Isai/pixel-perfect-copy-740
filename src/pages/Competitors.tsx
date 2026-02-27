@@ -11,10 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 
 const Competitors = () => {
-  usePageTitle("Competitors");
+  
   const { data: competitors, isLoading } = useCompetitors();
   const { data: rateIntel, isLoading: loadingIntel } = usePayRateIntel();
   const { agencyId, isViewer } = useAuth();

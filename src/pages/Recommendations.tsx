@@ -12,12 +12,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 
 const priorityColor = (p: string | null) => p === "high" ? "bg-red-500/20 text-red-400" : p === "medium" ? "bg-yellow-500/20 text-yellow-400" : "bg-blue-500/20 text-blue-400";
 
 const Recommendations = () => {
-  usePageTitle("Recommendations");
+  
   const { data: recs, isLoading, refetch } = useRecommendations();
   const { data: packages } = useCampaignPackages();
   const { agencyId } = useAuth();

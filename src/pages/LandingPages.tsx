@@ -17,10 +17,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { format, subDays, parseISO } from "date-fns";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 
 const LandingPages = () => {
-  usePageTitle("Landing Pages");
+  
   const { data: pages, isLoading, refetch } = useLandingPages();
   const { data: events } = useLandingPageEvents();
   const { data: agency } = useAgency();

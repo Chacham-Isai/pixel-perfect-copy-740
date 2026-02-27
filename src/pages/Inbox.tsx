@@ -12,7 +12,7 @@ import { Inbox as InboxIcon, MessageSquare, Mail, Send, Search, User, Phone, AtS
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import { useConversationThreads, useThreadMessages, useUnreadCount } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatTimeAgo, formatPhone } from "@/lib/formatters";
@@ -20,7 +20,7 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { Link } from "react-router-dom";
 
 const Inbox = () => {
-  usePageTitle("Inbox");
+  
   const { agencyId } = useAuth();
   const { data: threads, isLoading, isError, refetch } = useConversationThreads();
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);

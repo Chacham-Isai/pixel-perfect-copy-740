@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isToday, addDays } from "date-fns";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 
 const platformIcon = (p: string | null) => {
   switch (p) {
@@ -28,7 +28,7 @@ const platformIcon = (p: string | null) => {
 };
 
 const ContentCalendar = () => {
-  usePageTitle("Content Calendar");
+  
   const { data: posts, isLoading, refetch } = useContentPosts();
   const { agencyId } = useAuth();
   const all = posts || [];
