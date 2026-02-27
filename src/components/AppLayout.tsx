@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -37,10 +37,33 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
+const PAGE_TITLES: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/caregivers": "Caregivers",
+  "/campaigns": "Campaigns",
+  "/campaign-builder": "Campaign Builder",
+  "/talent-sourcing": "Talent Sourcing",
+  "/halevai": "Halevai AI",
+  "/inbox": "Inbox",
+  "/reviews": "Reviews",
+  "/competitors": "Competitors",
+  "/content": "Content Calendar",
+  "/landing-pages": "Landing Pages",
+  "/creatives": "Ad Creatives",
+  "/enrollment": "Enrollment",
+  "/automations": "Automations",
+  "/playbooks": "Playbooks",
+  "/recommendations": "Recommendations",
+  "/briefing": "Briefing",
+  "/settings": "Settings",
+  "/onboarding": "Onboarding",
+};
+
 export function AppLayout({ children }: AppLayoutProps) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdSearch, setCmdSearch] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: caregivers } = useCaregivers();
   const { data: campaigns } = useCampaigns();
 
@@ -54,6 +77,12 @@ export function AppLayout({ children }: AppLayoutProps) {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, []);
+
+  // Centralized page title management
+  useEffect(() => {
+    const title = PAGE_TITLES[location.pathname];
+    document.title = title ? `${title} | Halevai.ai` : "Halevai.ai";
+  }, [location.pathname]);
 
   const handleSelect = useCallback((href: string) => {
     setCmdOpen(false);
