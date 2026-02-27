@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/halevai-logo.png";
 
 const Auth = () => {
+  useEffect(() => { document.title = "Sign In | Halevai.ai"; }, []);
   const { session, loading } = useAuth();
   const { toast } = useToast();
   const [forgotPassword, setForgotPassword] = useState(false);

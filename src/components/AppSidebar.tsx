@@ -4,11 +4,12 @@ import {
   Search, Shield, Star, Inbox,
   Zap, Settings, LogOut
 } from "lucide-react";
+import { useEffect } from "react";
 import { useUnreadCount } from "@/hooks/useAgencyData";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/lib/permissions";
 import { NavLink } from "@/components/NavLink";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/care-at-home-logo.png";
 
 import {
@@ -69,10 +70,42 @@ const navSections = [
   },
 ];
 
+const PAGE_TITLES: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/caregivers": "Caregivers",
+  "/campaigns": "Campaigns",
+  "/campaign-builder": "Campaign Builder",
+  "/talent-sourcing": "Talent Sourcing",
+  "/halevai": "Halevai AI",
+  "/inbox": "Inbox",
+  "/reviews": "Reviews",
+  "/competitors": "Competitors",
+  "/content": "Content Calendar",
+  "/landing-pages": "Landing Pages",
+  "/creatives": "Ad Creatives",
+  "/enrollment": "Enrollment",
+  "/automations": "Automations",
+  "/playbooks": "Playbooks",
+  "/recommendations": "Recommendations",
+  "/briefing": "Daily Briefing",
+  "/settings": "Settings",
+  "/onboarding": "Onboarding",
+};
+
 export function AppSidebar() {
   const { signOut, agencyRole } = useAuth();
   const { data: unreadCount } = useUnreadCount();
   const canManageSettings = hasPermission(agencyRole, "manage_api_keys");
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname.replace(/\/+$/, "") || "/";
+    const title = PAGE_TITLES[path];
+    const id = window.setTimeout(() => {
+      document.title = title ? `${title} | Halevai.ai` : "Halevai.ai";
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [location.pathname]);
   return (
     <Sidebar className="border-r border-border">
       <Link to="/dashboard" className="p-5 flex items-center gap-3 hover:opacity-80 transition-opacity">
