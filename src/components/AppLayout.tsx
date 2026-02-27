@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -37,27 +37,6 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-const PAGE_TITLES: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/caregivers": "Caregivers",
-  "/campaigns": "Campaigns",
-  "/campaign-builder": "Campaign Builder",
-  "/talent-sourcing": "Talent Sourcing",
-  "/halevai": "Halevai AI",
-  "/inbox": "Inbox",
-  "/reviews": "Reviews",
-  "/competitors": "Competitors",
-  "/content": "Content Calendar",
-  "/landing-pages": "Landing Pages",
-  "/creatives": "Ad Creatives",
-  "/enrollment": "Enrollment",
-  "/automations": "Automations",
-  "/playbooks": "Playbooks",
-  "/recommendations": "Recommendations",
-  "/briefing": "Briefing",
-  "/settings": "Settings",
-  "/onboarding": "Onboarding",
-};
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -78,12 +57,6 @@ export function AppLayout({ children }: AppLayoutProps) {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  // Centralized page title management — useLayoutEffect prevents one-navigation lag
-  useLayoutEffect(() => {
-    const path = location.pathname.replace(/\/+$/, "") || "/";
-    const title = PAGE_TITLES[path];
-    document.title = title ? `${title} | Halevai.ai` : "Halevai.ai";
-  }, [location.pathname]);
 
   const handleSelect = useCallback((href: string) => {
     setCmdOpen(false);
