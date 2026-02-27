@@ -15,10 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 
 const AdCreatives = () => {
-  usePageTitle("Ad Creatives");
+  
   const { data: creatives, isLoading, refetch } = useAdCreatives();
   const { agencyId } = useAuth();
   const qc = useQueryClient();

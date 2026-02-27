@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -78,9 +78,10 @@ export function AppLayout({ children }: AppLayoutProps) {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  // Centralized page title management
-  useEffect(() => {
-    const title = PAGE_TITLES[location.pathname];
+  // Centralized page title management — useLayoutEffect prevents one-navigation lag
+  useLayoutEffect(() => {
+    const path = location.pathname.replace(/\/+$/, "") || "/";
+    const title = PAGE_TITLES[path];
     document.title = title ? `${title} | Halevai.ai` : "Halevai.ai";
   }, [location.pathname]);
 

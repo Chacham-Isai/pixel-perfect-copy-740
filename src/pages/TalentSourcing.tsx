@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 import { sourcingCampaignSchema, formatZodErrors } from "@/lib/validations";
 
 // Pre-built sequences for display
@@ -51,7 +51,7 @@ const OUTREACH_SEQUENCES = {
 };
 
 const TalentSourcing = () => {
-  usePageTitle("Talent Sourcing");
+  
   const { data: campaigns, isLoading: loadingCampaigns, refetch: refetchCampaigns } = useSourcingCampaigns();
   const { data: candidates, isLoading: loadingCandidates, refetch: refetchCandidates } = useSourcedCandidates();
   const { data: activityLog, isLoading: loadingActivity, refetch: refetchActivity } = useAgentActivityLog();
@@ -93,27 +93,31 @@ const TalentSourcing = () => {
     return () => { supabase.removeChannel(channel); };
   }, [agencyId, refetchActivity]);
 
-  const [nameError, setNameError] = useState("");
+  const [nameSubmitted, setNameSubmitted] = useState(false);
+  const [nameTouched, setNameTouched] = useState(false);
+  const nameInvalid = (nameSubmitted || nameTouched) && !form.name.trim();
 
   const handleCreate = async () => {
-    if (!form.name.trim()) {
-      setNameError("Campaign name is required");
-      return;
-    }
-    setNameError("");
+    setNameSubmitted(true);
+    if (!form.name.trim()) return;
     const validation = sourcingCampaignSchema.safeParse(form);
     const errors = formatZodErrors(validation);
     if (errors) { toast.error(errors); return; }
     if (!agencyId) return;
     setCreating(true);
-    const { error } = await supabase.from("sourcing_campaigns").insert({
-      agency_id: agencyId, name: form.name, state: form.state || null,
-      county: form.county || null, target_language: form.language,
-      max_candidates: Number(form.max) || 50, status: "active",
-    } as any);
-    if (error) toast.error("Failed to create");
-    else { toast.success("Sourcing campaign created!"); setCreateOpen(false); setForm({ name: "", state: "", county: "", language: "english", max: "50" }); refetchCampaigns(); }
-    setCreating(false);
+    try {
+      const { error } = await supabase.from("sourcing_campaigns").insert({
+        agency_id: agencyId, name: form.name, state: form.state || null,
+        county: form.county || null, target_language: form.language,
+        max_candidates: Number(form.max) || 50, status: "active",
+      } as any);
+      if (error) toast.error("Failed to create");
+      else { toast.success("Sourcing campaign created!"); setCreateOpen(false); setForm({ name: "", state: "", county: "", language: "english", max: "50" }); setNameSubmitted(false); setNameTouched(false); refetchCampaigns(); }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to create");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const toggleStatus = async (id: string, current: string) => {
@@ -269,14 +273,14 @@ const TalentSourcing = () => {
             <Search className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground">Talent Sourcing</h1>
           </div>
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setNameSubmitted(false); setNameTouched(false); } }}>
             <DialogTrigger asChild>
               <Button className="bg-primary text-primary-foreground"><Plus className="h-4 w-4 mr-1" /> New Campaign</Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border">
               <DialogHeader><DialogTitle className="text-foreground">Create Sourcing Campaign</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <div className="space-y-2"><Label>Campaign Name <span className="text-destructive">*</span></Label><Input value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); if (e.target.value.trim()) setNameError(""); }} onBlur={() => { if (!form.name.trim()) setNameError("Campaign name is required"); }} placeholder="e.g. Oregon Q1 Sourcing" className={`bg-secondary border-border ${nameError ? "border-destructive" : ""}`} />{nameError && <p className="text-sm text-destructive">{nameError}</p>}</div>
+                <div className="space-y-2"><Label>Campaign Name <span className="text-destructive">*</span></Label><Input required aria-invalid={nameInvalid} aria-describedby="name-error" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} onBlur={() => setNameTouched(true)} placeholder="e.g. Oregon Q1 Sourcing" className={`bg-secondary border-border ${nameInvalid ? "!border-destructive focus-visible:!ring-destructive" : ""}`} />{nameInvalid && <p id="name-error" className="text-sm text-destructive">Campaign name is required</p>}</div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>State</Label><Input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} placeholder="Oregon" className="bg-secondary border-border" /></div>
                   <div className="space-y-2"><Label>County</Label><Input value={form.county} onChange={e => setForm(f => ({ ...f, county: e.target.value }))} placeholder="Washington" className="bg-secondary border-border" /></div>

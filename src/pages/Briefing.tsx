@@ -9,10 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 
 const Briefing = () => {
-  usePageTitle("Daily Briefing");
+  
   const { data: caregivers, isLoading } = useCaregivers();
   const { data: campaigns } = useCampaigns();
   const { data: reviews } = useReviews();

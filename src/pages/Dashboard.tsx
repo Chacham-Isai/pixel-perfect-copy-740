@@ -10,7 +10,7 @@ import {
 import { Link } from "react-router-dom";
 import { useCaregivers, useCampaigns, useReviews, useActivityLog, useSourcedCandidates, usePayRateIntel, useMessageLog, useApiKeys, usePhoneScreens } from "@/hooks/useAgencyData";
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 
 const quickActions = [
   { label: "Add Caregiver", desc: "Add a new lead to your pipeline", icon: UserPlus, href: "/caregivers" },
@@ -39,7 +39,7 @@ const integrations = [
 ];
 
 const Dashboard = () => {
-  usePageTitle("Dashboard");
+  
   const { data: caregivers, isLoading: loadingCaregivers } = useCaregivers();
   const { data: campaigns } = useCampaigns();
   const { data: reviews } = useReviews();

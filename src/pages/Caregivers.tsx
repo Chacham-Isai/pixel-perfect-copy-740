@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ComposeMessageDialog } from "@/components/ComposeMessageDialog";
-import { usePageTitle } from "@/hooks/usePageTitle";
+
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { isValidStatusTransition, normalizePhone } from "@/lib/formatters";
 import { addCaregiverSchema, formatZodErrors } from "@/lib/validations";
@@ -125,7 +125,7 @@ function CaregiverCard({ caregiver: c, onClick }: { caregiver: Caregiver; onClic
 }
 
 const Caregivers = () => {
-  usePageTitle("Caregivers");
+  
   const { data: caregivers, isLoading } = useCaregivers();
   const { data: rateIntel } = usePayRateIntel();
   const { agencyId } = useAuth();
