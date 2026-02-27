@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import defaultLogo from "@/assets/logo-transparent.png";
 
+// Title is set dynamically after data loads
+
 interface LandingPageData {
   id: string;
   agency_id: string;
@@ -59,6 +61,10 @@ const PublicLandingPage = () => {
     medium: searchParams.get("utm_medium") || null,
     campaign: searchParams.get("utm_campaign") || null,
   };
+
+  useEffect(() => {
+    document.title = page?.title ? `${page.title} | Halevai.ai` : "Halevai.ai";
+  }, [page?.title]);
 
   useEffect(() => {
     const load = async () => {

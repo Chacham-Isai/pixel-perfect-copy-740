@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/halevai-logo.png";
 
 const ResetPassword = () => {
+  useEffect(() => { document.title = "Reset Password | Halevai.ai"; }, []);
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
