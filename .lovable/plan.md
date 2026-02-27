@@ -1,30 +1,58 @@
 
+Implementation steps
+1) Stabilize browser tab titles from a single source
+- Keep title updates only in `src/components/AppLayout.tsx`.
+- Change title effect from `useEffect` to `useLayoutEffect` to prevent one-navigation lag.
+- Add a route-title resolver that normalizes pathname (trailing slash) and supports exact + prefix matches.
+- Remove `usePageTitle(...)` imports/calls from all AppLayout-backed pages so no child component can overwrite titles after navigation.
 
-## Plan: Fix 3 Remaining UI Bugs
+2) Remove competing title writers in page files
+- Update these files to drop `usePageTitle` usage:
+  - `src/pages/Dashboard.tsx`
+  - `src/pages/Caregivers.tsx`
+  - `src/pages/Campaigns.tsx`
+  - `src/pages/TalentSourcing.tsx`
+  - `src/pages/HalevaiChat.tsx` (if present)
+  - `src/pages/Enrollment.tsx`
+  - `src/pages/Competitors.tsx`
+  - `src/pages/Reviews.tsx`
+  - `src/pages/Recommendations.tsx`
+  - `src/pages/Playbooks.tsx`
+  - `src/pages/Briefing.tsx`
+  - `src/pages/ContentCalendar.tsx`
+  - `src/pages/LandingPages.tsx`
+  - `src/pages/AdCreatives.tsx`
+  - `src/pages/Automations.tsx`
+  - `src/pages/Inbox.tsx`
+- Keep explicit title handling for non-AppLayout routes (`/`, `/auth`, `/reset-password`, 404/public pages) so those never inherit stale titles.
 
-### Bug 1: Browser tab titles off by one page
-**Status**: Still an issue. Each page calls `usePageTitle("X")` individually, but during route transitions the timing can cause the wrong title to display.
+3) Harden Talent Sourcing validation UX
+- In `src/pages/TalentSourcing.tsx`, replace single `nameError` string flow with explicit validation state (`touched/submitted` + derived invalid).
+- Keep Create button enabled unless `creating === true` (no empty-name disable).
+- Force visible invalid styling when empty:
+  - input classes include `!border-destructive` and destructive focus ring when invalid.
+  - inline message always renders after blur or submit attempt when empty.
+  - label keeps required asterisk.
+- Add semantic validation attributes:
+  - `required`
+  - `aria-invalid`
+  - `aria-describedby` linked to inline error text.
+- Reset validation state when dialog opens/closes and after successful create.
+- Wrap create async flow in `try/catch/finally` so `creating` always resets (prevents sticky disabled button).
 
-**Fix**: Add a centralized title manager in `AppLayout.tsx` that sets `document.title` based on `location.pathname`. This fires reliably after navigation. Remove individual `usePageTitle` calls from pages (or keep them as a no-op fallback — the centralized one will win).
+4) Regression verification (post-implementation)
+- Navigate rapidly between 6+ routes (sidebar + browser back/forward) and confirm tab title always matches current page, never previous page.
+- Validate Talent Sourcing dialog:
+  - Open dialog with empty name: click Create → inline error + red border visible.
+  - Blur empty field → inline error visible.
+  - Enter valid name → red border/error clear.
+  - Click Create with valid data → button disables only during request/spinner, then re-enables.
 
-**Files**: `src/components/AppLayout.tsx` — add a `useEffect` with `location.pathname` dependency and a pathname-to-title map.
-
-### Bug 2: Recommendations Approved tab empty state
-**Status**: Already fixed. Lines 136-142 of `Recommendations.tsx` already have the empty state with `CheckCircle` icon, heading, and description. No changes needed.
-
-### Bug 3: Talent Sourcing "Create Campaign" — no visible validation
-**Status**: The button is disabled when name is empty (`!form.name.trim()` on line 286), so clicking does nothing. Zod validation (line 97-99) fires a toast but only if the button is clickable. No inline error or required indicator.
-
-**Fix**:
-1. Add a red asterisk `*` next to the "Campaign Name" label
-2. Add a `nameError` state that shows inline red text "Campaign name is required" when the user tries to submit or blurs the field with an empty value
-3. Make the button always enabled, rely on the existing zod validation toast + add the inline error
-4. Add red border (`border-red-500`) to the input when error is shown
-
-**Files**: `src/pages/TalentSourcing.tsx` — add validation state, asterisk on label, inline error text, red border on input.
-
-### Summary
-- 1 centralized fix in `AppLayout.tsx` for page titles
-- 1 fix in `TalentSourcing.tsx` for validation feedback
-- Bug 2 already resolved, no action needed
-
+Technical details
+- Primary root cause for title lag: multiple title writers (`AppLayout` + page-level `usePageTitle`) using passive effects.
+- Primary root cause for validation inconsistency: not all invalid states were guaranteed to produce persistent visual feedback and creating-state recovery wasn’t fully guarded.
+- Targeted files:
+  - `src/components/AppLayout.tsx`
+  - `src/pages/TalentSourcing.tsx`
+  - all pages currently importing `usePageTitle`
+  - optionally `src/hooks/usePageTitle.ts` (deprecate/no-op or keep only for non-AppLayout pages)
