@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select("agency_id, role")
         .eq("user_id", user.id)
         .limit(1)
-        .single()
+        .maybeSingle()
         .then(({ data }) => {
           setAgencyId(data?.agency_id ?? null);
           setAgencyRole((data?.role as AgencyRole) ?? null);

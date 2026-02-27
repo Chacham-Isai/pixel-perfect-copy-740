@@ -8,6 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, ArrowLeft, Building2, Stethoscope, Target, Sparkles, Loader2, CheckCircle } from "lucide-react";
 import logo from "@/assets/halevai-logo.png";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
@@ -45,10 +48,97 @@ const Onboarding = () => {
     patientTarget: 20,
     usps: [] as string[],
   });
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const next = () => setCurrentStep((s) => Math.min(s + 1, 5));
   const prev = () => setCurrentStep((s) => Math.max(s - 1, 0));
+
+  const handleComplete = async () => {
+    setSaving(true);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("Not authenticated");
+
+      const { data: memberData, error: memberError } = await supabase
+        .from("agency_members")
+        .select("agency_id")
+        .eq("user_id", currentUser.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (memberError) throw memberError;
+      if (!memberData?.agency_id) throw new Error("No agency found for user");
+
+      const agencyId = memberData.agency_id;
+
+      // Update agencies table
+      const { error: agencyError } = await supabase
+        .from("agencies")
+        .update({
+          name: form.agencyName,
+          states: form.states,
+          phone: form.phone,
+          primary_state: form.states[0] ?? null,
+          office_address: form.address,
+        })
+        .eq("id", agencyId);
+
+      if (agencyError) throw agencyError;
+
+      // Upsert business_config
+      const { error: configError } = await supabase
+        .from("business_config")
+        .upsert({
+          agency_id: agencyId,
+          business_name: form.agencyName,
+          phone: form.phone,
+          tagline: "We Handle All the Paperwork",
+          industry: form.programTypes.join(", "),
+          primary_color: "#00bfff",
+        }, { onConflict: "agency_id" });
+
+      if (configError) throw configError;
+
+      // Insert onboarding row with correct columns
+      const { error: onboardingError } = await supabase
+        .from("onboarding")
+        .insert({
+          agency_id: agencyId,
+          user_id: currentUser.id,
+          agency_name: form.agencyName,
+          states: form.states,
+          program_types: form.programTypes,
+          primary_goal: form.primaryGoal,
+          budget_tier: form.budgetTier,
+          monthly_caregiver_target: form.caregiverTarget,
+          monthly_patient_target: form.patientTarget,
+          unique_selling_points: form.usps,
+          completed: true,
+          completed_at: new Date().toISOString(),
+          current_step: 6,
+        });
+
+      if (onboardingError) throw onboardingError;
+
+      // Mark profile as onboarded
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ onboarded: true })
+        .eq("user_id", currentUser.id);
+
+      if (profileError) throw profileError;
+
+      toast.success("Setup complete! Welcome to Halevai.");
+      navigate("/dashboard");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Something went wrong";
+      toast.error(`Setup failed: ${message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -202,7 +292,9 @@ const Onboarding = () => {
             {currentStep < 5 ? (
               <Button className="bg-primary text-primary-foreground" onClick={next}>Next <ArrowRight className="h-4 w-4 ml-1" /></Button>
             ) : (
-              <Button className="bg-primary text-primary-foreground" onClick={() => navigate("/dashboard")}>Go to Dashboard <ArrowRight className="h-4 w-4 ml-1" /></Button>
+              <Button className="bg-primary text-primary-foreground" onClick={handleComplete} disabled={saving}>
+                {saving ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Saving...</> : <>Go to Dashboard <ArrowRight className="h-4 w-4 ml-1" /></>}
+              </Button>
             )}
           </div>
         </CardContent>
